@@ -11,36 +11,45 @@ pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
 
+#[derive(Debug, PartialEq)]
 struct LibgenBookData {
     libgen_id: u64,
     libgen_group_id: u64,
     title: String,
     authors: Vec<String>,
     publisher: String,
-    direct_link: String,
+    direct_link: Option<String>,
 }
 
-fn parsemd5_from_url(url: String) -> String {
-    return url.split("md5=").next().unwrap_or("").to_lowercase();
+fn parsemd5_from_url(url: String) -> Option<String> {
+    if let Some(md5_hash) = url.split("md5=").next() {
+        return Some(md5_hash.to_lowercase());
+    }
+    None
 }
 
 fn calculate_group_id(id: u64) -> u64 {
     return id - (id % 1000);
 }
 
+// TODO: should accept mirrors
 fn build_direct_download_url(
     book_id: u64,
     url: String,
     title: &String,
     file_type: String,
-) -> String {
-    return format!(
-        "https://download.library.lol/main/{}/{}/{}.{}",
-        calculate_group_id(book_id),
-        parsemd5_from_url(url),
-        encode(title),
-        file_type
-    );
+) -> Result<String, String> {
+    if let Some(md5_value) = parsemd5_from_url(url) {
+        Ok(format!(
+            "https://download.library.lol/main/{}/{}/{}.{}",
+            calculate_group_id(book_id),
+            md5_value,
+            encode(title),
+            file_type
+        ))
+    } else {
+        Err("No 'md5' parameter found in the URL".to_string())
+    }
 }
 // Search for the book on libgen and return the direct download link, link is created with info on the search result page
 fn search_libgen(title: &String) -> Option<LibgenBookData> {
@@ -62,14 +71,17 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
                     let publisher_selector = Selector::parse("td:nth-child(4)").unwrap(); // Assuming the file type is in the 9th column
                     let file_type_selector = Selector::parse("td:nth-child(9)").unwrap(); // Assuming the file type is in the 9th column
                                                                                           //Get authors
-                    let authors_selector = Selector::parse("td ~ a:not([title])").unwrap();
+                    let authors_selector = Selector::parse("td > a:not([title])").unwrap();
 
                     //Make sure there is a title atleast
                     if let Some(title_cell) = row.select(&title_cell_selector).next() {
                         // TODO: Add parameter to prefer a file type
                         //Get the books title and encode it
                         if let Some(result_title) = title_cell.text().nth(0) {
-                            if !result_title.to_ascii_lowercase().contains(&title.to_ascii_lowercase()) {
+                            if !result_title
+                                .to_ascii_lowercase()
+                                .contains(&title.to_ascii_lowercase())
+                            {
                                 //the result does not contain the given example/shortened title (comparing to method parameter this is the books title)
                                 break;
                             }
@@ -77,6 +89,7 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
                             // There is no title for this result
                             break;
                         }
+
                         //let title = title_cell.text().nth(0).unwrap_or("Missing Title").trim();
 
                         //Might cause issues
@@ -107,21 +120,26 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
                             .select(&authors_selector)
                             .map(|author| author.inner_html())
                             .collect();
+
                         let publisher =
                             row.select(&publisher_selector).next().unwrap().inner_html();
 
+                        let direct_link = match build_direct_download_url(
+                            book_id,
+                            href_book_link,
+                            &title.to_string(),
+                            file_type,
+                        ) {
+                            Ok(dog) => Some(dog), // If build_direct_download_url succeeds, assign the direct link
+                            Err(_) => None, // If build_direct_download_url fails, assign an empty string
+                        };
                         return Some(LibgenBookData {
                             title: title.to_owned(),
                             libgen_id: book_id,
                             libgen_group_id: book_group_id,
                             publisher,
                             authors,
-                            direct_link: build_direct_download_url(
-                                book_id,
-                                href_book_link,
-                                &title.to_string(),
-                                file_type,
-                            ),
+                            direct_link,
                         });
                     }
                 }
@@ -184,5 +202,24 @@ mod tests {
         assert_eq!(calculate_group_id(1499), 1000);
         assert_eq!(calculate_group_id(1555), 1000);
         assert_eq!(calculate_group_id(1999), 1000);
+    }
+
+    #[test]
+    fn test_search_libgen() {
+        // This may change but it correct as of Feb 12, 2024
+        let valid_result = LibgenBookData {
+            libgen_id: 3759134,
+            libgen_group_id: 3759000,
+            title: "Python for Security and Networking".to_owned(),
+            authors: vec!["José Manuel Ortega".to_string()],
+            publisher: "Packt Publishing".to_owned(),
+            direct_link: Some("https://download.library.lol/main/3759000/book/index.php?/Python%20for%20Security%20and%20Networking.epub".to_owned())
+        };
+
+        let title = "Python for Security and Networking".to_string();
+
+        let live_return = search_libgen(&title).unwrap();
+        assert_eq!(valid_result, live_return);
+        println!("{:?}", live_return);
     }
 }
