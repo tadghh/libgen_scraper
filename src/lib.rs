@@ -167,4 +167,22 @@ mod tests {
         let result = add(2, 2);
         assert_eq!(result, 4);
     }
+
+    #[test]
+    fn test_calculate_group_id() {
+        // if the function input is somehow negative thats nmp, libgen broke.
+
+        // Test cases where id is divisible by 1000
+        assert_eq!(calculate_group_id(0), 0);
+        assert_eq!(calculate_group_id(1000), 1000);
+        assert_eq!(calculate_group_id(5000), 5000);
+
+        // Test cases where id is not divisible by 1000
+        assert_eq!(calculate_group_id(1), 0);
+        assert_eq!(calculate_group_id(999), 0);
+        assert_eq!(calculate_group_id(1001), 1000);
+        assert_eq!(calculate_group_id(1499), 1000);
+        assert_eq!(calculate_group_id(1555), 1000);
+        assert_eq!(calculate_group_id(1999), 1000);
+    }
 }
