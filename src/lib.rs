@@ -68,14 +68,35 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
                     index = index + 1;
 
                     // Start off by making sure we only grab the search results, as the table header isnt semantic (libgen problem)
-                    let title_cell_selector = Selector::parse("td[width='500'] > a").unwrap();
+
                     let book_group_id_selector = Selector::parse("td:first-child").unwrap();
                     let publisher_selector = Selector::parse("td:nth-child(4)").unwrap(); // Assuming the file type is in the 9th column
                     let file_type_selector = Selector::parse("td:nth-child(9)").unwrap(); // Assuming the file type is in the 9th column
-                    //CSS Selector for author(s) of a book
-                    let authors_selector = Selector::parse("td > a:not([title])").unwrap();
+                                                                                          //CSS Selector for author(s) of a book
+                    let authors_selector =
+                        Selector::parse("td:nth-child(2) > a:not([title])").unwrap();
 
                     //Make sure there is a title atleast
+                    let book_id =
+                        if let Some(book_id_element) = row.select(&book_group_id_selector).next() {
+                            match book_id_element.inner_html().parse::<u64>() {
+                                Ok(id) => id,
+                                Err(_) => {
+                                    // Handle parsing error (e.g., return an error, break, or handle differently)
+                                    // For simplicity, let's return an arbitrary value, such as 0
+                                    0
+                                }
+                            }
+                        } else {
+                            // Handle case where book_id is not found (e.g., return an error, break, or handle differently)
+                            // For simplicity, let's return an arbitrary value, such as 0
+                            0
+                        };
+                    if book_id == 0 {
+                        continue;
+                    }
+                    let search_result_selector = format!("td[width='500'] > a[id='{}']", book_id);
+                    let title_cell_selector = Selector::parse(&search_result_selector).unwrap();
                     if let Some(title_cell) = row.select(&title_cell_selector).next() {
                         // TODO: Add parameter to prefer a file type
                         //Get the books title and encode it
@@ -84,12 +105,14 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
                                 .to_ascii_lowercase()
                                 .contains(&title.to_ascii_lowercase())
                             {
+                                println!("No title");
+                                println!("{:?}", result_title);
                                 //the result does not contain the given example/shortened title (comparing to method parameter this is the books title)
-                                break;
+                                continue;
                             }
                         } else {
                             // There is no title for this result
-                            break;
+                            continue;
                         }
 
                         // TODO: Im unsure about all these unwraps, if there is no content to unwrap -> problem
@@ -120,10 +143,12 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
 
                         let book_group_id = calculate_group_id(book_id);
 
-                        let authors: Vec<String> = row
-                            .select(&authors_selector)
-                            .map(|author| author.inner_html())
-                            .collect();
+                        let authors: Vec<_> = row.select(&authors_selector).collect::<Vec<_>>();
+                        let author_test =
+                            authors.into_iter().map(|auth| auth.inner_html()).collect();
+
+                        println!("{:?}", author_test);
+                        println!("Past authors");
 
                         let publisher =
                             row.select(&publisher_selector).next().unwrap().inner_html();
@@ -142,7 +167,7 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
                             libgen_id: book_id,
                             libgen_group_id: book_group_id,
                             publisher,
-                            authors,
+                            authors: author_test,
                             direct_link,
                         });
                     }
@@ -225,7 +250,19 @@ mod tests {
         let live_return = search_libgen(&title).unwrap();
         assert_eq!(valid_result, live_return);
         println!("{:?}", live_return);
-
+        let valid_cat_result = LibgenBookData{
+            libgen_id: 3750,
+            libgen_group_id: 3000,
+            title: "Abstract and concrete categories: the joy of cats".to_owned(),
+            authors: vec!["Jiri Adamek".to_string(), " Horst Herrlich".to_string(), " George E. Strecker".to_string()],
+            publisher: "Wiley-Interscience".to_owned(),
+            direct_link: Some("https://download.library.lol/main/3000/book/index.php?/Abstract%20and%20concrete%20categories%3A%20the%20joy%20of%20cats.pdf".to_owned())
+        };
+        let coauthored_book = "Abstract and concrete categories: the joy of cats".to_string();
+        let live_multi_author_return = search_libgen(&coauthored_book).unwrap();
+        // assert_eq!(valid_result, live_return);
+        println!("{:?}", live_multi_author_return);
+        assert_eq!(valid_cat_result, live_multi_author_return);
         // Add test for multi authors
     }
 }
