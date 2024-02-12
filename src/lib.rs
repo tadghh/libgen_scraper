@@ -9,9 +9,18 @@ use urlencoding::encode;
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
+struct LibgenBookData{
+    libgen_id: u64,
+    libgen_group_id: u64,
+    title: String,
+    authors: Vec<String>,
+    publishers: String,
+    direct_link: String
 
+
+}
 // Search for the book on libgen and return the direct download link, link is created with info on the search result page
-fn search_libgen(title: &String) -> Option<String> {
+fn search_libgen(title: &String) -> Option<LibgenBookData> {
 
     let book_title = encode(&title);
     // make book_title html encoded
@@ -20,13 +29,18 @@ fn search_libgen(title: &String) -> Option<String> {
     if let Ok(response) = reqwest::blocking::get(&libgen_search_url) {
         if let Ok(text) = response.text() {
             let document = Html::parse_document(&text);
-
+            let mut index = 0;
             if let Ok(book_row_selector) = Selector::parse("table.c tbody tr") {
                 //Rows of search results
                 for row in document.select(&book_row_selector) {
+                    println!("{}",index );
+                    index = index +1 ;
                     let title_cell_selector = Selector::parse("td[width='500'] > a").unwrap();
                     let book_group_id_selector = Selector::parse("td:first-child").unwrap();
+                    let publisher_selector = Selector::parse("td:nth-child(4)").unwrap(); // Assuming the file type is in the 9th column
                     let file_type_selector = Selector::parse("td:nth-child(9)").unwrap(); // Assuming the file type is in the 9th column
+                    //Get authors
+                    let authors_selector = Selector::parse("td ~ a:not([title])").unwrap();
 
                     //Search result itsel
                     if let Some(title_cell) = row.select(&title_cell_selector).next() {
@@ -49,14 +63,14 @@ fn search_libgen(title: &String) -> Option<String> {
                                 download_link.split("md5=").next().unwrap_or("").to_lowercase();
 
                                 //Books are sorted in groups of divisable by 1000
-                                let mut book_group_id = row
+                                let mut book_id = row
                                     .select(&book_group_id_selector)
                                     .next()
                                     .unwrap()
                                     .inner_html()
-                                    .parse::<f64>()
+                                    .parse::<u64>()
                                     .unwrap();
-                                book_group_id = book_group_id - (book_group_id % 1000.0);
+                                let book_group_id = book_id - (book_id % 1000);
 
                                 let direct_download_url = format!(
                                     "https://download.library.lol/main/{}/{}/{}.{}",
@@ -65,7 +79,12 @@ fn search_libgen(title: &String) -> Option<String> {
                                 println!("Download Link: {}", direct_download_url);
 
                                 // TODO: check for dates and other downloads
-                                return Some(direct_download_url);
+                                return Some(LibgenBookData{
+                                    title: title.to_owned(),
+                                    libgen_id: book_id,
+                                    libgen_group_id: book_group_id,
+                                    direct_link: direct_download_url,
+                                })
                             }
 
                         }
