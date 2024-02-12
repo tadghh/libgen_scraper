@@ -1,64 +1,84 @@
-
-
-use std::{error::Error, fs::File, io::{Read, Write}, net::TcpStream};
 use scraper::{Html, Selector};
+use std::{
+    error::Error,
+    fs::File,
+    io::{Read, Write},
+    net::TcpStream,
+};
 use urlencoding::encode;
 pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
 
 // Search for the book on libgen and return the direct download link, link is created with info on the search result page
-fn search_libgen(title: &String) -> Option<String>{
+fn search_libgen(title: &String) -> Option<String> {
+
     let book_title = encode(&title);
     // make book_title html encoded
     let libgen_search_url: String = format!("https://www.libgen.is/search.php?&req={}&phrase=1&view=simple&column=def&sort=year&sortmode=DESC", book_title);
-    let response = reqwest::blocking::get(&libgen_search_url).unwrap().text().unwrap();
-    let document = Html::parse_document(&response);
-    let book_row_selector = Selector::parse("table.c tbody tr").unwrap();
 
-    //Rows of search results
-    for row in document.select(&book_row_selector) {
-        let title_cell_selector = Selector::parse("td[width='500'] > a").unwrap();
-        let book_group_id_selector = Selector::parse("td:first-child").unwrap();
-        let file_type_selector = Selector::parse("td:nth-child(9)").unwrap(); // Assuming the file type is in the 9th column
+    if let Ok(response) = reqwest::blocking::get(&libgen_search_url) {
+        if let Ok(text) = response.text() {
+            let document = Html::parse_document(&text);
 
-        //Search result itsel
-        if let Some(title_cell) = row.select(&title_cell_selector).next() {
-            let file_type = row.select(&file_type_selector).next().unwrap().inner_html();
+            if let Ok(book_row_selector) = Selector::parse("table.c tbody tr") {
+                //Rows of search results
+                for row in document.select(&book_row_selector) {
+                    let title_cell_selector = Selector::parse("td[width='500'] > a").unwrap();
+                    let book_group_id_selector = Selector::parse("td:first-child").unwrap();
+                    let file_type_selector = Selector::parse("td:nth-child(9)").unwrap(); // Assuming the file type is in the 9th column
 
-            // TODO: Add parameter to prefer a file type
-            if file_type.contains("epub") {
-                //Get the books title and encode it
-                let title = title_cell.text().nth(0).unwrap().trim();
-                let title_urlencoded = encode(&title);
+                    //Search result itsel
+                    if let Some(title_cell) = row.select(&title_cell_selector).next() {
 
-                //Get the md5 value used by libgen to find the matching book later.
-                let mut download_link = title_cell.value().attr("href").unwrap().to_string();
+                        // TODO: Add parameter to prefer a file type
+                        if let Some(file_type_element)= row.select(&file_type_selector).next(){
+                            //Get the books title and encode it
+                            let file_type_str = file_type_element.inner_html();
 
-                //Formatting /trimming
-                let mut download_link_md5 = download_link.split_off(download_link.find("md5=").unwrap() + 4);
+                            //We need the download link otherwise we cant continue, so we check for it first
+                            if let Some(download_link) = title_cell.value().attr("href"){
+                                //Get the md5 value used by libgen to find the matching book later.
+                                //Formatting /trimming
+                                let title = title_cell.text().nth(0).unwrap_or("Missing Title").trim();
+                                let title_urlencoded = encode(&title);
 
-                //Might cause issues
-                // TODO: Alternate path, going to the book download page on libgen and grabbin the url there instead of skipping it (since we are creating the direct link from the info on the search page).
-                download_link_md5 = download_link_md5.to_ascii_lowercase();
+                                //Might cause issues
+                                // TODO: Alternate path, going to the book download page on libgen and grabbin the url there instead of skipping it (since we are creating the direct link from the info on the search page).
+                                let download_link_md5 =
+                                download_link.split("md5=").next().unwrap_or("").to_lowercase();
 
-                //Books are sorted in groups of divisable by 1000
-                let mut book_group_id = row.select(&book_group_id_selector).next().unwrap().inner_html().parse::<f64>().unwrap();
-                book_group_id =book_group_id  - (book_group_id % 1000.0);
+                                //Books are sorted in groups of divisable by 1000
+                                let mut book_group_id = row
+                                    .select(&book_group_id_selector)
+                                    .next()
+                                    .unwrap()
+                                    .inner_html()
+                                    .parse::<f64>()
+                                    .unwrap();
+                                book_group_id = book_group_id - (book_group_id % 1000.0);
 
-                let direct_download_url = format!("https://download.library.lol/main/{}/{}/{}.{}",book_group_id,download_link_md5,title_urlencoded,file_type);
-                println!("Download Link: {}", direct_download_url);
+                                let direct_download_url = format!(
+                                    "https://download.library.lol/main/{}/{}/{}.{}",
+                                    book_group_id, download_link_md5, title_urlencoded, file_type_str
+                                );
+                                println!("Download Link: {}", direct_download_url);
 
-                // TODO: check for dates and other downloads
-                return Some(direct_download_url);
+                                // TODO: check for dates and other downloads
+                                return Some(direct_download_url);
+                            }
+
+                        }
+                    }
+                }
             }
         }
     }
-    return None
+    return None;
 }
 
 // Downloads the book from a given url
-fn download_book_url(url: &String) -> Result<(),  Box<dyn Error>>{
+fn download_book_url(url: &String) -> Result<(), Box<dyn Error>> {
     // Connect to the server
     let mut stream = TcpStream::connect("download.library.lol:80")?;
     println!("Connected!");
