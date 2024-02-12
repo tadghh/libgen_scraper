@@ -4,6 +4,7 @@ use std::{
     fs::File,
     io::{Read, Write},
     net::TcpStream,
+    result,
 };
 use urlencoding::encode;
 pub fn add(left: usize, right: usize) -> usize {
@@ -15,7 +16,7 @@ struct LibgenBookData {
     libgen_group_id: u64,
     title: String,
     authors: Vec<String>,
-    publishers: String,
+    publisher: String,
     direct_link: String,
 }
 
@@ -63,51 +64,65 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
                                                                                           //Get authors
                     let authors_selector = Selector::parse("td ~ a:not([title])").unwrap();
 
-                    //Search result itsel
+                    //Make sure there is a title atleast
                     if let Some(title_cell) = row.select(&title_cell_selector).next() {
                         // TODO: Add parameter to prefer a file type
-                        if let Some(file_type_element) = row.select(&file_type_selector).next() {
-                            //Get the books title and encode it
-                            let title = title_cell.text().nth(0).unwrap_or("Missing Title").trim();
-
-                            //Might cause issues
-                            // TODO: Alternate path, going to the book download page on libgen and grabbin the url there instead of skipping it (since we are creating the direct link from the info on the search page).
-                            let href_book_link = title_cell
-                                .value()
-                                .attr("href")
-                                .unwrap_or("missing")
-                                .to_owned();
-
-                            //Books are sorted in groups of divisable by 1000
-                            let book_id = row
-                                .select(&book_group_id_selector)
-                                .next()
-                                .unwrap()
-                                .inner_html()
-                                .parse::<u64>()
-                                .unwrap();
-                            let book_group_id = calculate_group_id(book_id);
-
-                            let authors: Vec<String> = row
-                                .select(&authors_selector)
-                                .map(|author| author.inner_html())
-                                .collect();
-
-                            let file_type_str = file_type_element.inner_html();
-                            return Some(LibgenBookData {
-                                title: title.to_owned(),
-                                libgen_id: book_id,
-                                libgen_group_id: book_group_id,
-                                publishers: String::from("temp"),
-                                authors,
-                                direct_link: build_direct_download_url(
-                                    book_id,
-                                    href_book_link,
-                                    &title.to_string(),
-                                    file_type_str,
-                                ),
-                            });
+                        //Get the books title and encode it
+                        if let Some(result_title) = title_cell.text().nth(0) {
+                            if !result_title.to_ascii_lowercase().contains(&title.to_ascii_lowercase()) {
+                                //the result does not contain the given example/shortened title (comparing to method parameter this is the books title)
+                                break;
+                            }
+                        } else {
+                            // There is no title for this result
+                            break;
                         }
+                        //let title = title_cell.text().nth(0).unwrap_or("Missing Title").trim();
+
+                        //Might cause issues
+                        // TODO: Alternate path, going to the book download page on libgen and grabbin the url there instead of skipping it (since we are creating the direct link from the info on the search page).
+                        let file_type = row
+                            .select(&file_type_selector)
+                            .next()
+                            .unwrap()
+                            .inner_html()
+                            .to_owned();
+                        let href_book_link = title_cell
+                            .value()
+                            .attr("href")
+                            .unwrap_or("missing")
+                            .to_owned();
+
+                        //Books are sorted in groups of divisable by 1000
+                        let book_id = row
+                            .select(&book_group_id_selector)
+                            .next()
+                            .unwrap()
+                            .inner_html()
+                            .parse::<u64>()
+                            .unwrap();
+                        let book_group_id = calculate_group_id(book_id);
+
+                        let authors: Vec<String> = row
+                            .select(&authors_selector)
+                            .map(|author| author.inner_html())
+                            .collect();
+                        let publisher =
+                            row.select(&publisher_selector).next().unwrap().inner_html();
+
+                        return Some(LibgenBookData {
+                            title: title.to_owned(),
+                            libgen_id: book_id,
+                            libgen_group_id: book_group_id,
+                            publisher,
+                            authors,
+                            direct_link: build_direct_download_url(
+                                book_id,
+                                href_book_link,
+                                &title.to_string(),
+                                file_type,
+                            ),
+                        });
                     }
                 }
             }
