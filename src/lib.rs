@@ -66,11 +66,13 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
                 for row in document.select(&book_row_selector) {
                     println!("{}", index);
                     index = index + 1;
+
+                    // Start off by making sure we only grab the search results, as the table header isnt semantic (libgen problem)
                     let title_cell_selector = Selector::parse("td[width='500'] > a").unwrap();
                     let book_group_id_selector = Selector::parse("td:first-child").unwrap();
                     let publisher_selector = Selector::parse("td:nth-child(4)").unwrap(); // Assuming the file type is in the 9th column
                     let file_type_selector = Selector::parse("td:nth-child(9)").unwrap(); // Assuming the file type is in the 9th column
-                                                                                          //Get authors
+                    //CSS Selector for author(s) of a book
                     let authors_selector = Selector::parse("td > a:not([title])").unwrap();
 
                     //Make sure there is a title atleast
@@ -90,7 +92,8 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
                             break;
                         }
 
-                        //let title = title_cell.text().nth(0).unwrap_or("Missing Title").trim();
+                        // TODO: Im unsure about all these unwraps, if there is no content to unwrap -> problem
+                        // but is 'if let some' really the solution? Do I move them out to their own functions?
 
                         //Might cause issues
                         // TODO: Alternate path, going to the book download page on libgen and grabbin the url there instead of skipping it (since we are creating the direct link from the info on the search page).
@@ -100,13 +103,13 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
                             .unwrap()
                             .inner_html()
                             .to_owned();
+
                         let href_book_link = title_cell
                             .value()
                             .attr("href")
                             .unwrap_or("missing")
                             .to_owned();
 
-                        //Books are sorted in groups of divisable by 1000
                         let book_id = row
                             .select(&book_group_id_selector)
                             .next()
@@ -114,6 +117,7 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
                             .inner_html()
                             .parse::<u64>()
                             .unwrap();
+
                         let book_group_id = calculate_group_id(book_id);
 
                         let authors: Vec<String> = row
@@ -221,5 +225,7 @@ mod tests {
         let live_return = search_libgen(&title).unwrap();
         assert_eq!(valid_result, live_return);
         println!("{:?}", live_return);
+
+        // Add test for multi authors
     }
 }
