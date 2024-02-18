@@ -53,19 +53,22 @@ fn build_direct_download_url(
 }
 // Search for the book on libgen and return the direct download link, link is created with info on the search result page
 fn search_libgen(title: &String) -> Option<LibgenBookData> {
-    let book_title = encode(&title);
-    // make book_title html encoded
-    let libgen_search_url: String = format!("https://www.libgen.is/search.php?&req={}&phrase=1&view=simple&column=def&sort=year&sortmode=DESC", book_title);
 
-    if let Ok(response) = reqwest::blocking::get(&libgen_search_url) {
-        if let Ok(text) = response.text() {
-            let document = Html::parse_document(&text);
-            let mut index = 0;
+    // make book_title html encoded
+    let libgen_search_url: String = format!("https://www.libgen.is/search.php?&req={}&phrase=1&view=simple&column=def&sort=year&sortmode=DESC", encode(&title));
+
+
+
+
+
+     let response = reqwest::blocking::get(&libgen_search_url).ok();
+        let text= response?.text().ok()?;
+            let document = Html::parse_document(&text.to_string());
+
             if let Ok(book_row_selector) = Selector::parse("table.c tbody tr") {
                 //Rows of search results
                 for row in document.select(&book_row_selector) {
-                    println!("{}", index);
-                    index = index + 1;
+
 
                     // Start off by making sure we only grab the search results, as the table header isnt semantic (libgen problem)
 
@@ -173,8 +176,8 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
                     }
                 }
             }
-        }
-    }
+
+
     return None;
 }
 
