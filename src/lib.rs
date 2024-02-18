@@ -74,111 +74,11 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
     // Our CSS selector to grab relevant matching elements
     let book_row_selector = Selector::parse("table.c tbody tr").ok()?;
 
-    //Rows of search results
-    for row in document.select(&book_row_selector) {
-        // Start off by making sure we only grab the search results, as the table header isnt semantic (libgen problem)
-
-        let book_group_id_selector = Selector::parse("td:first-child").unwrap();
-        let publisher_selector = Selector::parse("td:nth-child(4)").unwrap(); // Assuming the file type is in the 9th column
-        let file_type_selector = Selector::parse("td:nth-child(9)").unwrap(); // Assuming the file type is in the 9th column
-                                                                              //CSS Selector for author(s) of a book
-        let authors_selector = Selector::parse("td:nth-child(2) > a:not([title])").unwrap();
-
-        //Make sure there is a title atleast
-        let book_id = if let Some(book_id_element) = row.select(&book_group_id_selector).next() {
-            match book_id_element.inner_html().parse::<u64>() {
-                Ok(id) => id,
-                Err(_) => {
-                    // Handle parsing error (e.g., return an error, break, or handle differently)
-                    // For simplicity, let's return an arbitrary value, such as 0
-                    0
-                }
-            }
-        } else {
-            // Handle case where book_id is not found (e.g., return an error, break, or handle differently)
-            // For simplicity, let's return an arbitrary value, such as 0
-            0
-        };
-        if book_id == 0 {
-            continue;
-        }
-        let search_result_selector = format!("td[width='500'] > a[id='{}']", book_id);
-        let title_cell_selector = Selector::parse(&search_result_selector).unwrap();
-        if let Some(title_cell) = row.select(&title_cell_selector).next() {
-            // TODO: Add parameter to prefer a file type
-            //Get the books title and encode it
-            if let Some(result_title) = title_cell.text().nth(0) {
-                if !result_title
-                    .to_ascii_lowercase()
-                    .contains(&title.to_ascii_lowercase())
-                {
-                    println!("No title");
-                    println!("{:?}", result_title);
-                    //the result does not contain the given example/shortened title (comparing to method parameter this is the books title)
-                    continue;
-                }
-            } else {
-                // There is no title for this result
-                continue;
-            }
-
-            // TODO: Im unsure about all these unwraps, if there is no content to unwrap -> problem
-            // but is 'if let some' really the solution? Do I move them out to their own functions?
-
-            //Might cause issues
-            // TODO: Alternate path, going to the book download page on libgen and grabbin the url there instead of skipping it (since we are creating the direct link from the info on the search page).
-            let file_type = row
-                .select(&file_type_selector)
-                .next()
-                .unwrap()
-                .inner_html()
-                .to_owned();
-
-            let href_book_link = title_cell
-                .value()
-                .attr("href")
-                .unwrap_or("missing")
-                .to_owned();
-
-            let book_id = row
-                .select(&book_group_id_selector)
-                .next()
-                .unwrap()
-                .inner_html()
-                .parse::<u64>()
-                .unwrap();
-
-            let book_group_id = calculate_group_id(book_id);
-
-            let authors: Vec<_> = row.select(&authors_selector).collect::<Vec<_>>();
-            let author_test = authors.into_iter().map(|auth| auth.inner_html()).collect();
-
-            println!("{:?}", author_test);
-            println!("Past authors");
-
-            let publisher = row.select(&publisher_selector).next().unwrap().inner_html();
-
-            let direct_link = match build_direct_download_url(
-                book_id,
-                href_book_link,
-                &title.to_string(),
-                file_type,
-            ) {
-                Ok(dog) => Some(dog), // If build_direct_download_url succeeds, assign the direct link
-                Err(_) => None,       // If build_direct_download_url fails, assign an empty string
-            };
-            return Some(LibgenBookData {
-                title: title.to_owned(),
-                libgen_id: book_id,
-                libgen_group_id: book_group_id,
-                publisher,
-                authors: author_test,
-                direct_link,
-            });
-        }
-    }
-
-    return None;
+    // Go through our list of results, processing them until we are returned "Some" value.
+    // If no value is found None is returned.
+    document
+        .select(&book_row_selector)
+        .find_map(|srch_result| process_libgen_search_result(title, srch_result))
 }
 
 // Downloads the book from a given url
