@@ -11,6 +11,10 @@ pub fn add(left: usize, right: usize) -> usize {
     left + right
 }
 
+// TODO: Better naming style
+
+// TODO: Make Error types
+
 #[derive(Debug, PartialEq)]
 struct LibgenBookData {
     libgen_id: u64,
@@ -20,7 +24,10 @@ struct LibgenBookData {
     publisher: String,
     direct_link: Option<String>,
 }
-
+impl LibgenBookData {
+    // TODO: Do this, the struct will carry the original url anyway
+    fn GetDirectDownloadLink() {}
+}
 fn parsemd5_from_url(url: String) -> Option<String> {
     if let Some(md5_hash) = url.split("md5=").next() {
         return Some(md5_hash.to_lowercase());
