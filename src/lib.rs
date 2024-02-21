@@ -64,8 +64,87 @@ fn process_libgen_search_result(
     title: &String,
     result_row: ElementRef<'_>,
 ) -> Option<LibgenBookData> {
-    None
+    // CSS Selectors
+    // Books libgen id
+    let book_libgen_id_selector = Selector::parse("td:first-child").unwrap();
+
+    let book_id_elem = result_row.select(&book_libgen_id_selector).next()?;
+    let book_id = book_id_elem.inner_html().parse::<u64>().ok()?;
+
+    // CSS to grab the title of a search result
+    let title_cell_selector =
+        Selector::parse(&format!("td[width='500'] > a[id='{}']", book_id)).unwrap();
+
+    let title_cell = result_row.select(&title_cell_selector).next()?;
+    let search_result_title = title_cell.text().nth(0)?;
+
+    // If the search result title doesnt contain/match the title parameter return none. We know it isn't the correct book
+    if !search_result_title
+        .to_ascii_lowercase()
+        .contains(&title.to_ascii_lowercase())
+    {
+        println!("No title");
+        println!("{:?}", search_result_title);
+        //the result does not contain the given example/shortened title (comparing to method parameter this is the books title)
+        return None;
+    }
+
+    // Books publisher selector
+    let publisher_selector = Selector::parse("td:nth-child(4)").unwrap();
+    // Book file type
+    let file_type_selector = Selector::parse("td:nth-child(9)").unwrap();
+
+    // Get all the authors for the book
+    let authors_selector = Selector::parse("td:nth-child(2) > a:not([title])").unwrap();
+
+    // TODO: Alternate path, going to the book download page on libgen and grabbin the url there instead of skipping it (since we are creating the direct link from the info on the search page).
+    let file_type = result_row
+        .select(&file_type_selector)
+        .next()
+        .unwrap()
+        .inner_html()
+        .to_owned();
+
+    let href_book_link = title_cell.value().attr("href")?.to_owned();
+
+    // let book_id = result_row
+    //     .select(&book_libgen_id_selector)
+    //     .next()
+    //     .unwrap()
+    //     .inner_html()
+    //     .parse::<u64>()
+    //     .unwrap();
+
+    let book_group_id = calculate_group_id(book_id);
+
+    //let mut authors: Vec<_> = result_row.select(&authors_selector).collect::<Vec<_>>();
+    //authors = authors.into_iter().map(|auth| auth.inner_html()).collect();
+
+    let authors: Vec<_> = result_row
+        .select(&authors_selector)
+        .into_iter()
+        .map(|auth| auth.inner_html())
+        .collect();
+
+    let publisher = result_row
+        .select(&publisher_selector)
+        .next()
+        .unwrap()
+        .inner_html();
+
+    let direct_link =
+        build_direct_download_url(book_id, href_book_link, &title.to_string(), file_type).ok();
+
+    Some(LibgenBookData {
+        title: title.to_owned(),
+        libgen_id: book_id,
+        libgen_group_id: book_group_id,
+        publisher,
+        authors,
+        direct_link,
+    })
 }
+
 // Search for the book on libgen and return the direct download link, link is created with info on the search result page
 fn search_libgen(title: &String) -> Option<LibgenBookData> {
     // make book_title html encoded
@@ -168,6 +247,7 @@ mod tests {
             publisher: "Wiley-Interscience".to_owned(),
             direct_link: Some("https://download.library.lol/main/3000/book/index.php?/Abstract%20and%20concrete%20categories%3A%20the%20joy%20of%20cats.pdf".to_owned())
         };
+
         let coauthored_book = "Abstract and concrete categories: the joy of cats".to_string();
         let live_multi_author_return = search_libgen(&coauthored_book).unwrap();
         // assert_eq!(valid_result, live_return);
