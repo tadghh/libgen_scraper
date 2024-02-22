@@ -14,6 +14,7 @@
 //!
 //!
 #![warn(missing_docs)]
+use reqwest::blocking;
 use scraper::{ElementRef, Html, Selector};
 use std::{
     error::Error,
@@ -59,6 +60,14 @@ mod util {
             assert_eq!(calculate_group_id(19992123), 19992000);
         }
     }
+}
+
+pub enum LibgenError {
+    ConnectionError,
+    TimeoutError,
+    NotFoundError,
+    NetworkError,
+    ParsingError,
 }
 
 #[derive(Debug, PartialEq)]
@@ -179,25 +188,33 @@ fn process_libgen_search_result(
 }
 
 #[doc = r" Search for the book on libgen and return the direct download link, link is created with info on the search result page."]
-pub fn search_libgen(title: &String) -> Option<LibgenBookData> {
+pub fn search_libgen(title: &String) -> Result<Option<LibgenBookData>, LibgenError> {
     // make book_title html encoded
     let libgen_search_url: String = format!("https://www.libgen.is/search.php?&req={}&phrase=1&view=simple&column=def&sort=year&sortmode=DESC", encode(&title));
 
-    // Get the response, using ok() turning it into an option ? then throws it up to the calling function
-    let response = reqwest::blocking::get(&libgen_search_url).ok()?;
+    // Get the response from the URL
+    let response = blocking::get(&libgen_search_url).map_err(|_| LibgenError::NetworkError)?;
 
-    // From the response access it as text, again using ok to turn the result in and option we can throw up. If we need to throw up ofc
-    // Then parsing the text of the response into an HTML object
-    let document = Html::parse_document(&response.text().ok()?);
+    // Check if the response is successful
+    if response.status().is_success() {
+        // Parse the HTML document
+        let document =
+            Html::parse_document(&response.text().map_err(|_| LibgenError::ParsingError)?);
 
-    // Our CSS selector to grab relevant matching elements
-    let book_row_selector = Selector::parse("table.c tbody tr").ok()?;
+        // CSS selector to grab relevant matching elements
+        let book_row_selector =
+            Selector::parse("table.c tbody tr").map_err(|_| LibgenError::ParsingError)?;
 
-    // Go through our list of results, processing them until we are returned "Some" value.
-    // If no value is found None is returned.
-    document
-        .select(&book_row_selector)
-        .find_map(|srch_result| process_libgen_search_result(title, srch_result))
+        // Return the first valid result
+        let book_data = document
+            .select(&book_row_selector)
+            .find_map(|srch_result| process_libgen_search_result(title, srch_result));
+
+        Ok(book_data)
+    } else {
+        // If the response is not successful, return an error
+        Err(LibgenError::NetworkError)
+    }
 }
 
 // TODO: Maybe this is impl on the struct
