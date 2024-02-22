@@ -15,7 +15,7 @@ pub fn add(left: usize, right: usize) -> usize {
 // TODO: Make Error types
 
 #[derive(Debug, PartialEq)]
-struct LibgenBookData {
+pub struct LibgenBookData {
     libgen_id: u64,
     libgen_group_id: u64,
     title: String,
@@ -25,14 +25,11 @@ struct LibgenBookData {
 }
 
 fn parsemd5_from_url(url: String) -> Option<String> {
-    if let Some(md5_hash) = url.split("md5=").next() {
-        return Some(md5_hash.to_lowercase());
-    }
-    None
+    Some(url.split("md5=").next()?.to_lowercase())
 }
 
 fn calculate_group_id(id: u64) -> u64 {
-    return id - (id % 1000);
+    id - (id % 1000)
 }
 
 // TODO: should accept mirrors
@@ -142,7 +139,7 @@ fn process_libgen_search_result(
 }
 
 // Search for the book on libgen and return the direct download link, link is created with info on the search result page
-fn search_libgen(title: &String) -> Option<LibgenBookData> {
+pub fn search_libgen(title: &String) -> Option<LibgenBookData> {
     // make book_title html encoded
     let libgen_search_url: String = format!("https://www.libgen.is/search.php?&req={}&phrase=1&view=simple&column=def&sort=year&sortmode=DESC", encode(&title));
 
@@ -164,7 +161,7 @@ fn search_libgen(title: &String) -> Option<LibgenBookData> {
 }
 
 // Downloads the book from a given url
-fn download_book_url(url: &String) -> Result<(), Box<dyn Error>> {
+pub fn download_book_url(url: &String) -> Result<(), Box<dyn Error>> {
     // Connect to the server
     let mut stream = TcpStream::connect("download.library.lol:80")?;
     println!("Connected!");
