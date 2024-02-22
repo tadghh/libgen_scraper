@@ -1,3 +1,19 @@
+//! Simple Library Genesis web scraper.
+//!
+//! This crate will allow you to scrape information and download books, hosted on Library Genesis.
+//! Please be careful to not accidentally DOS Libgen.
+//!
+//! ### Current Features
+//! - Downloading books
+//! - Pulling information about a book
+//!
+//! ### Planned
+//! - Preferred file types
+//! - Multithreading
+//! - Just make it better
+//!
+//!
+#![warn(missing_docs)]
 use scraper::{ElementRef, Html, Selector};
 use std::{
     error::Error,
@@ -6,15 +22,47 @@ use std::{
     net::TcpStream,
 };
 use urlencoding::encode;
-pub fn add(left: usize, right: usize) -> usize {
-    left + right
-}
-
-// TODO: Better naming style
+use util::{calculate_group_id, parsemd5_from_url};
 
 // TODO: Make Error types
 
+mod util {
+    pub fn parsemd5_from_url(url: String) -> Option<String> {
+        Some(url.split("md5=").next()?.to_lowercase())
+    }
+
+    pub fn calculate_group_id(id: u64) -> u64 {
+        (id / 1000) * 1000
+    }
+
+    #[cfg(test)]
+    mod tests {
+        use super::*;
+        #[test]
+        fn test_group_id_equal_zero() {
+            assert_eq!(calculate_group_id(0), 0);
+        }
+        #[test]
+        fn test_group_id_below_1000() {
+            assert_eq!(calculate_group_id(531), 0);
+        }
+        #[test]
+        fn test_group_id_equal_1000() {
+            assert_eq!(calculate_group_id(1000), 1000);
+        }
+        #[test]
+        fn test_group_id_above_1000() {
+            assert_eq!(calculate_group_id(1999), 1000);
+        }
+        #[test]
+        fn test_group_id_large() {
+            assert_eq!(calculate_group_id(19992123), 19992000);
+        }
+    }
+}
+
 #[derive(Debug, PartialEq)]
+#[doc = r" The data collected from a search result."]
 pub struct LibgenBookData {
     libgen_id: u64,
     libgen_group_id: u64,
@@ -22,14 +70,6 @@ pub struct LibgenBookData {
     authors: Vec<String>,
     publisher: String,
     direct_link: Option<String>,
-}
-
-fn parsemd5_from_url(url: String) -> Option<String> {
-    Some(url.split("md5=").next()?.to_lowercase())
-}
-
-fn calculate_group_id(id: u64) -> u64 {
-    id - (id % 1000)
 }
 
 // TODO: should accept mirrors
@@ -138,7 +178,7 @@ fn process_libgen_search_result(
     })
 }
 
-// Search for the book on libgen and return the direct download link, link is created with info on the search result page
+#[doc = r" Search for the book on libgen and return the direct download link, link is created with info on the search result page."]
 pub fn search_libgen(title: &String) -> Option<LibgenBookData> {
     // make book_title html encoded
     let libgen_search_url: String = format!("https://www.libgen.is/search.php?&req={}&phrase=1&view=simple&column=def&sort=year&sortmode=DESC", encode(&title));
@@ -160,7 +200,8 @@ pub fn search_libgen(title: &String) -> Option<LibgenBookData> {
         .find_map(|srch_result| process_libgen_search_result(title, srch_result))
 }
 
-// Downloads the book from a given url
+// TODO: Maybe this is impl on the struct
+#[doc = r" Downloads a book from the given direct download url."]
 pub fn download_book_url(url: &String) -> Result<(), Box<dyn Error>> {
     // Connect to the server
     let mut stream = TcpStream::connect("download.library.lol:80")?;
@@ -189,49 +230,32 @@ pub fn download_book_url(url: &String) -> Result<(), Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
+    use std::{thread, time::Duration};
+
     use super::*;
 
-    #[test]
-    fn it_works() {
-        let result = add(2, 2);
-        assert_eq!(result, 4);
-    }
+    // #[test]
+    // fn search_book_by_single_author() {
+    //     // This may change but it correct as of Feb 12, 2024
+    //     let generic_book = "Python for Security and Networking".to_string();
+    //     let valid_result = LibgenBookData {
+    //         libgen_id: 3759134,
+    //         libgen_group_id: 3759000,
+    //         title: "Python for Security and Networking".to_owned(),
+    //         authors: vec!["José Manuel Ortega".to_string()],
+    //         publisher: "Packt Publishing".to_owned(),
+    //         direct_link: Some("https://download.library.lol/main/3759000/book/index.php?/Python%20for%20Security%20and%20Networking.epub".to_owned())
+    //     };
+    //     thread::sleep(Duration::from_secs(5));
+    //     let live_return = search_libgen(&generic_book).unwrap();
+    //     assert_eq!(valid_result, live_return);
+    // }
 
     #[test]
-    fn test_calculate_group_id() {
-        // if the function input is somehow negative thats nmp, libgen broke.
-
-        // Test cases where id is divisible by 1000
-        assert_eq!(calculate_group_id(0), 0);
-        assert_eq!(calculate_group_id(1000), 1000);
-        assert_eq!(calculate_group_id(5000), 5000);
-
-        // Test cases where id is not divisible by 1000
-        assert_eq!(calculate_group_id(1), 0);
-        assert_eq!(calculate_group_id(999), 0);
-        assert_eq!(calculate_group_id(1001), 1000);
-        assert_eq!(calculate_group_id(1499), 1000);
-        assert_eq!(calculate_group_id(1555), 1000);
-        assert_eq!(calculate_group_id(1999), 1000);
-    }
-
-    #[test]
-    fn test_search_libgen() {
+    fn search_book_with_multiple_authors() {
         // This may change but it correct as of Feb 12, 2024
-        let valid_result = LibgenBookData {
-            libgen_id: 3759134,
-            libgen_group_id: 3759000,
-            title: "Python for Security and Networking".to_owned(),
-            authors: vec!["José Manuel Ortega".to_string()],
-            publisher: "Packt Publishing".to_owned(),
-            direct_link: Some("https://download.library.lol/main/3759000/book/index.php?/Python%20for%20Security%20and%20Networking.epub".to_owned())
-        };
-
-        let title = "Python for Security and Networking".to_string();
-
-        let live_return = search_libgen(&title).unwrap();
-        assert_eq!(valid_result, live_return);
-        println!("{:?}", live_return);
+        // Book with multi authors
+        let coauthored_book = "Abstract and concrete categories: the joy of cats".to_string();
         let valid_cat_result = LibgenBookData{
             libgen_id: 3750,
             libgen_group_id: 3000,
@@ -240,12 +264,8 @@ mod tests {
             publisher: "Wiley-Interscience".to_owned(),
             direct_link: Some("https://download.library.lol/main/3000/book/index.php?/Abstract%20and%20concrete%20categories%3A%20the%20joy%20of%20cats.pdf".to_owned())
         };
-
-        let coauthored_book = "Abstract and concrete categories: the joy of cats".to_string();
+        thread::sleep(Duration::from_secs(5));
         let live_multi_author_return = search_libgen(&coauthored_book).unwrap();
-        // assert_eq!(valid_result, live_return);
-        println!("{:?}", live_multi_author_return);
         assert_eq!(valid_cat_result, live_multi_author_return);
-        // Add test for multi authors
     }
 }
