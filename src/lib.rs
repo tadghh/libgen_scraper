@@ -62,6 +62,8 @@ mod util {
     }
 }
 
+#[derive(Debug, PartialEq)]
+#[doc = r" The data collected from a search result."]
 pub enum LibgenError {
     ConnectionError,
     TimeoutError,
@@ -325,7 +327,7 @@ mod tests {
             direct_link: Some("https://download.library.lol/main/3000/book/index.php?/Abstract%20and%20concrete%20categories%3A%20the%20joy%20of%20cats.pdf".to_owned())
         };
         thread::sleep(Duration::from_secs(5));
-        let live_multi_author_return = search_libgen(&coauthored_book).unwrap();
-        assert_eq!(valid_cat_result, live_multi_author_return);
+        let live_multi_author_return = search_libgen(&coauthored_book);
+        assert_eq!(valid_cat_result, Ok(live_multi_author_return));
     }
 }
