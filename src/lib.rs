@@ -14,17 +14,19 @@
 //!
 //!
 #![warn(missing_docs)]
-use reqwest::blocking;
+use reqwest::StatusCode;
 use scraper::{ElementRef, Html, Selector};
+use std::thread;
+use std::time::Duration;
 use std::{
     error::Error,
+    fmt,
     fs::File,
     io::{Read, Write},
     net::TcpStream,
 };
 use urlencoding::encode;
 use util::{calculate_group_id, parsemd5_from_url};
-
 // TODO: Make Error types
 
 mod util {
@@ -72,6 +74,18 @@ pub enum LibgenError {
     ParsingError,
 }
 
+impl fmt::Display for LibgenError {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        let error_str = match self {
+            LibgenError::ConnectionError => "ConnectionError",
+            LibgenError::TimeoutError => "TimeoutError",
+            LibgenError::NotFoundError => "NotFoundError",
+            LibgenError::NetworkError => "NetworkError",
+            LibgenError::ParsingError => "ParsingError",
+        };
+        write!(f, "{}", error_str)
+    }
+}
 #[derive(Debug, PartialEq)]
 #[doc = r" The data collected from a search result."]
 pub struct LibgenBookData {
@@ -189,34 +203,58 @@ fn process_libgen_search_result(
     })
 }
 
+const MAX_RETRIES: usize = 3;
+const TIMEOUT_DURATION: u64 = 15;
+
 #[doc = r" Search for the book on libgen and return the direct download link, link is created with info on the search result page."]
 pub fn search_libgen(title: &String) -> Result<Option<LibgenBookData>, LibgenError> {
     // make book_title html encoded
-    let libgen_search_url: String = format!("https://www.libgen.is/search.php?&req={}&phrase=1&view=simple&column=def&sort=year&sortmode=DESC", encode(&title));
+    let libgen_search_url: String =
+    format!("https://www.libgen.is/search.php?&req={}&phrase=1&view=simple&column=title&sort=year&sortmode=DESC", encode(&title));
 
-    // Get the response from the URL
-    let response = blocking::get(&libgen_search_url).map_err(|_| LibgenError::NetworkError)?;
+    let book_row_selector =
+        Selector::parse("table.c tbody tr").map_err(|_| LibgenError::ParsingError)?;
 
-    // Check if the response is successful
-    if response.status().is_success() {
-        // Parse the HTML document
-        let document =
-            Html::parse_document(&response.text().map_err(|_| LibgenError::ParsingError)?);
+    let mut retries = 0;
+    let client = reqwest::blocking::Client::new();
 
-        // CSS selector to grab relevant matching elements
-        let book_row_selector =
-            Selector::parse("table.c tbody tr").map_err(|_| LibgenError::ParsingError)?;
+    // If we send requests to quicly, response 503/server is busy requiring us to loop and retry
+    while retries <= MAX_RETRIES {
+        let response = match client
+            .get(&libgen_search_url)
+            .timeout(Duration::from_secs(TIMEOUT_DURATION))
+            .send()
+        {
+            Ok(response) => response,
+            Err(_) => {
+                eprintln!("Failed to get response");
+                return Err(LibgenError::ConnectionError);
+            }
+        };
 
-        // Return the first valid result
-        let book_data = document
-            .select(&book_row_selector)
-            .find_map(|srch_result| process_libgen_search_result(title, srch_result));
+        // We need to be gentlemen and not spam libgen
+        if response.status() == StatusCode::SERVICE_UNAVAILABLE {
+            retries += 1;
 
-        Ok(book_data)
-    } else {
-        // If the response is not successful, return an error
-        Err(LibgenError::NetworkError)
+            eprintln!("Waiting...");
+            thread::sleep(Duration::from_secs(TIMEOUT_DURATION)); // Adding a delay between retries
+            continue;
+        }
+
+        if response.status() == StatusCode::OK {
+            let document =
+                Html::parse_document(&response.text().map_err(|_| LibgenError::ParsingError)?);
+
+            let book_data = document
+                .select(&book_row_selector)
+                .find_map(|srch_result| process_libgen_search_result(title, srch_result));
+
+            return Ok(book_data);
+        }
+        eprintln!("Server responded with {}", response.status());
+        return Err(LibgenError::NetworkError);
     }
+    Err(LibgenError::TimeoutError)
 }
 
 // TODO: Maybe this is impl on the struct
@@ -292,27 +330,42 @@ pub fn download_book_url(url: &String) -> Result<(), Box<dyn Error>> {
 
 #[cfg(test)]
 mod tests {
-    use std::{thread, time::Duration};
-
     use super::*;
 
-    // #[test]
-    // fn search_book_by_single_author() {
-    //     // This may change but it correct as of Feb 12, 2024
-    //     let generic_book = "Python for Security and Networking".to_string();
-    //     let valid_result = LibgenBookData {
-    //         libgen_id: 3759134,
-    //         libgen_group_id: 3759000,
-    //         title: "Python for Security and Networking".to_owned(),
-    //         authors: vec!["José Manuel Ortega".to_string()],
-    //         publisher: "Packt Publishing".to_owned(),
-    //         direct_link: Some("https://download.library.lol/main/3759000/book/index.php?/Python%20for%20Security%20and%20Networking.epub".to_owned())
-    //     };
-    //     thread::sleep(Duration::from_secs(5));
-    //     let live_return = search_libgen(&generic_book).unwrap();
-    //     assert_eq!(valid_result, live_return);
-    // }
-
+    #[test]
+    fn search_book_with_single_author() {
+        // This may change but it correct as of Feb 12, 2024
+        // Book with multi authors
+        let generic_book = "Python for Security and Networking".to_string();
+        let valid_result = LibgenBookData {
+            libgen_id: 3759134,
+            libgen_group_id: 3759000,
+            title: "Python for Security and Networking".to_owned(),
+            authors: vec!["José Manuel Ortega".to_string()],
+            publisher: "Packt Publishing".to_owned(),
+            direct_link: Some("https://download.library.lol/main/3759000/book/index.php?/Python%20for%20Security%20and%20Networking.epub".to_owned())
+        };
+        let search_result = search_libgen(&generic_book);
+        match search_result {
+            Ok(live_multi_author_return) => {
+                // Handle the Option inside the Result
+                match live_multi_author_return {
+                    Some(actual_result) => {
+                        // Assert equality
+                        assert_eq!(valid_result, actual_result);
+                    }
+                    None => {
+                        // If search result is None, fail the test
+                        panic!("Expected result not found");
+                    }
+                }
+            }
+            Err(_) => {
+                // If search function returns an error, fail the test
+                panic!("Error occurred during search");
+            }
+        }
+    }
     #[test]
     fn search_book_with_multiple_authors() {
         // This may change but it correct as of Feb 12, 2024
@@ -326,8 +379,25 @@ mod tests {
             publisher: "Wiley-Interscience".to_owned(),
             direct_link: Some("https://download.library.lol/main/3000/book/index.php?/Abstract%20and%20concrete%20categories%3A%20the%20joy%20of%20cats.pdf".to_owned())
         };
-        thread::sleep(Duration::from_secs(5));
-        let live_multi_author_return = search_libgen(&coauthored_book);
-        assert_eq!(valid_cat_result, Ok(live_multi_author_return));
+        let search_result = search_libgen(&coauthored_book);
+        match search_result {
+            Ok(live_multi_author_return) => {
+                // Handle the Option inside the Result
+                match live_multi_author_return {
+                    Some(actual_result) => {
+                        // Assert equality
+                        assert_eq!(valid_cat_result, actual_result);
+                    }
+                    None => {
+                        // If search result is None, fail the test
+                        panic!("Expected result not found");
+                    }
+                }
+            }
+            Err(err) => {
+                // If search function returns an error, fail the test
+                panic!("Error occurred durijng seargch: {:?}", err.to_string());
+            }
+        }
     }
 }
