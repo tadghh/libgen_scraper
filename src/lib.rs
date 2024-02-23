@@ -334,8 +334,6 @@ mod tests {
 
     #[test]
     fn search_book_with_single_author() {
-        // This may change but it correct as of Feb 12, 2024
-        // Book with multi authors
         let generic_book = "Python for Security and Networking".to_string();
         let valid_result = LibgenBookData {
             libgen_id: 3759134,
@@ -368,8 +366,6 @@ mod tests {
     }
     #[test]
     fn search_book_with_multiple_authors() {
-        // This may change but it correct as of Feb 12, 2024
-        // Book with multi authors
         let coauthored_book = "Abstract and concrete categories: the joy of cats".to_string();
         let valid_cat_result = LibgenBookData{
             libgen_id: 3750,
