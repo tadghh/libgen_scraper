@@ -16,19 +16,19 @@
 #![warn(missing_docs)]
 use reqwest::StatusCode;
 use scraper::{ElementRef, Html, Selector};
-use std::thread;
-use std::time::Duration;
 use std::{
     error::Error,
     fmt,
     fs::File,
     io::{Read, Write},
     net::TcpStream,
+    thread,
+    time::Duration,
 };
 use urlencoding::encode;
 use util::{calculate_group_id, parsemd5_from_url};
-// TODO: Make Error types
 
+// TODO: Docs
 mod util {
     pub fn parsemd5_from_url(url: String) -> Option<String> {
         Some(url.split("md5=").next()?.to_lowercase())
@@ -63,6 +63,8 @@ mod util {
         }
     }
 }
+
+// TODO: make docs
 
 #[derive(Debug, PartialEq)]
 #[doc = r" The data collected from a search result."]
@@ -164,6 +166,7 @@ fn process_libgen_search_result(
         .to_owned();
 
     let href_book_link = title_cell.value().attr("href")?.to_owned();
+    // TODO: Clean
 
     // let book_id = result_row
     //     .select(&book_libgen_id_selector)
@@ -203,6 +206,7 @@ fn process_libgen_search_result(
     })
 }
 
+// TODO: Clean
 const MAX_RETRIES: usize = 3;
 const TIMEOUT_DURATION: u64 = 15;
 
@@ -248,7 +252,7 @@ pub fn search_libgen(title: &String) -> Result<Option<LibgenBookData>, LibgenErr
             let book_data = document
                 .select(&book_row_selector)
                 .find_map(|srch_result| process_libgen_search_result(title, srch_result));
-
+            // TODO: Return error if no book, its up to the user to handle it
             return Ok(book_data);
         }
         eprintln!("Server responded with {}", response.status());
