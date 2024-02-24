@@ -198,17 +198,19 @@ fn process_libgen_search_result(
 // TODO: Clean
 const MAX_RETRIES: usize = 3;
 const TIMEOUT_DURATION: u64 = 15;
-
+const LIBGEN_MIRRORS: [&str; 3] = ["is", "rs", "st"];
 #[doc = r" Search for the book on libgen and return the direct download link, link is created with info on the search result page."]
 pub fn search_libgen(title: &String) -> Result<Option<LibgenBookData>, LibgenError> {
     // make book_title html encoded
-    let libgen_search_url: String =
-    format!("https://www.libgen.is/search.php?&req={}&phrase=1&view=simple&column=title&sort=year&sortmode=DESC", encode(&title));
+    let encoded_title = encode(&title);
+    let mut libgen_search_url: String =
+    format!("https://www.libgen.{}/search.php?&req={}&phrase=1&view=simple&column=title&sort=year&sortmode=DESC", LIBGEN_MIRRORS[0], encoded_title);
 
     let book_row_selector =
         Selector::parse("table.c tbody tr").map_err(|_| LibgenError::ParsingError)?;
 
     let mut retries = 0;
+    let mut retries_domain = 0;
     let client = reqwest::blocking::Client::new();
 
     // If we send requests to quickly, response 503/server is busy requiring us to loop and retry
@@ -228,9 +230,15 @@ pub fn search_libgen(title: &String) -> Result<Option<LibgenBookData>, LibgenErr
         // We need to be gentlemen and not spam libgen
         if response.status() == StatusCode::SERVICE_UNAVAILABLE {
             retries += 1;
-
+            retries_domain = if retries_domain < LIBGEN_MIRRORS.len() - 1 {
+                retries_domain + 1
+            } else {
+                thread::sleep(Duration::from_secs(TIMEOUT_DURATION)); // Adding a delay between retries
+                0
+            };
+            libgen_search_url = format!("https://www.libgen.{}/search.php?&req={}&phrase=1&view=simple&column=title&sort=year&sortmode=DESC", LIBGEN_MIRRORS[retries_domain], encoded_title);
             eprintln!("Waiting...");
-            thread::sleep(Duration::from_secs(TIMEOUT_DURATION)); // Adding a delay between retries
+
             continue;
         }
 
