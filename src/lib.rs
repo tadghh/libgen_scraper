@@ -150,7 +150,8 @@ fn process_libgen_search_result(
     }
 
     // Books publisher selector
-    let publisher_selector = Selector::parse("td:nth-child(4)").unwrap();
+    let publisher_selector: Selector = Selector::parse("td:nth-child(4)").unwrap();
+
     // Book file type
     let file_type_selector = Selector::parse("td:nth-child(9)").unwrap();
 
@@ -166,20 +167,8 @@ fn process_libgen_search_result(
         .to_owned();
 
     let href_book_link = title_cell.value().attr("href")?.to_owned();
-    // TODO: Clean
-
-    // let book_id = result_row
-    //     .select(&book_libgen_id_selector)
-    //     .next()
-    //     .unwrap()
-    //     .inner_html()
-    //     .parse::<u64>()
-    //     .unwrap();
 
     let book_group_id = calculate_group_id(book_id);
-
-    //let mut authors: Vec<_> = result_row.select(&authors_selector).collect::<Vec<_>>();
-    //authors = authors.into_iter().map(|auth| auth.inner_html()).collect();
 
     let authors: Vec<_> = result_row
         .select(&authors_selector)
@@ -222,7 +211,7 @@ pub fn search_libgen(title: &String) -> Result<Option<LibgenBookData>, LibgenErr
     let mut retries = 0;
     let client = reqwest::blocking::Client::new();
 
-    // If we send requests to quicly, response 503/server is busy requiring us to loop and retry
+    // If we send requests to quickly, response 503/server is busy requiring us to loop and retry
     while retries <= MAX_RETRIES {
         let response = match client
             .get(&libgen_search_url)
@@ -265,28 +254,7 @@ pub fn search_libgen(title: &String) -> Result<Option<LibgenBookData>, LibgenErr
 #[doc = r" Downloads a book from the given direct download url."]
 pub fn download_book_url(url: &String) -> Result<(), Box<dyn Error>> {
     // Connect to the server
-    // let mut stream = TcpStream::connect("download.library.lol:80")?;
-    // println!("Connected!");
 
-    // // Send the request
-    // let request = format!("GET {} HTTP/1.1\r\nHost: download.library.lol\r\n\r\n", url);
-    // stream.write_all(request.as_bytes())?;
-    // println!("Sent request!");
-
-    // let mut file = File::create("aa.epub")?;
-    // let mut total_bytes_read = 0;
-    // let mut buf = [0; 1024]; // buffer to read into
-    // loop {
-    //     let bytes_read = stream.read(&mut buf)?;
-    //     if bytes_read == 0 {
-    //         break; // end of stream
-    //     }
-    //     total_bytes_read += bytes_read;
-    //     file.write_all(&buf[..bytes_read])?;
-    //     println!("Downloaded {} bytes", total_bytes_read);
-    // }
-
-    // Ok(())
     // clean up the accept, add templating or do this headers another way
     let request = "GET /main/3759000/6bed397b612b9e3994a7dc2d6b5440ba/Jos%C3%A9%20Manuel%20Ortega%20-%20Python%20for%20Security%20and%20Networking_%20Leverage%20Python%20modules%20and%20tools%20in%20securing%20your%20network%20and%20applications-Packt%20Publishing%20%282023%29.epub HTTP/1.1\r\n\
         Host: download.library.lol\r\n\
@@ -316,8 +284,6 @@ pub fn download_book_url(url: &String) -> Result<(), Box<dyn Error>> {
     // Send the request
     stream.write_all(request.as_bytes())?;
     println!("Sent stream!");
-
-    // Read the response headers into a buffer
 
     // Read the response body into a buffer
     let mut buffer = Vec::new();
@@ -368,6 +334,7 @@ mod tests {
             }
         }
     }
+
     #[test]
     fn search_book_with_multiple_authors() {
         let coauthored_book = "Abstract and concrete categories: the joy of cats".to_string();
@@ -379,6 +346,7 @@ mod tests {
             publisher: "Wiley-Interscience".to_owned(),
             direct_link: Some("https://download.library.lol/main/3000/book/index.php?/Abstract%20and%20concrete%20categories%3A%20the%20joy%20of%20cats.pdf".to_owned())
         };
+
         let search_result = search_libgen(&coauthored_book);
         match search_result {
             Ok(live_multi_author_return) => {
