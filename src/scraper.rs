@@ -1,3 +1,4 @@
+use lazy_static::lazy_static;
 use std::{fmt, thread, time::Duration};
 
 use reqwest::StatusCode;
@@ -6,16 +7,29 @@ use urlencoding::encode;
 
 use crate::{
     book::LibgenBook,
-    util::{calculate_group_id, parse_md5_from_url},
+    util::{build_direct_download_url, calculate_group_id},
 };
+
+lazy_static! {
+    static ref BOOK_LIBGEN_ID_SELECTOR: Selector = Selector::parse("td:first-child").unwrap();
+    static ref BOOK_PUBLISHER_SELECTOR: Selector = Selector::parse("td:nth-child(4)").unwrap();
+    static ref BOOK_FILE_TYPE_SELECTOR: Selector = Selector::parse("td:nth-child(9)").unwrap();
+    static ref BOOK_AUTHORS_SELECTOR: Selector =
+        Selector::parse("td:nth-child(2) > a:not([title])").unwrap();
+}
 
 #[derive(Debug, PartialEq)]
 #[doc = r" The data collected from a search result."]
 pub enum LibgenError {
+    /// Connection error while collecting data.
     ConnectionError,
+    /// Timeout error while collecting data.
     TimeoutError,
+    /// Data not found during collection.
     NotFoundError,
+    /// Network error during data collection.
     NetworkError,
+    /// Error encountered while parsing collected data.
     ParsingError,
 }
 
@@ -32,39 +46,8 @@ impl fmt::Display for LibgenError {
     }
 }
 
-// TODO: should accept mirrors
-fn build_direct_download_url(
-    book_id: u64,
-    url: String,
-    title: &String,
-    file_type: String,
-) -> Result<String, String> {
-    if let Some(md5_value) = parse_md5_from_url(url) {
-        Ok(format!(
-            "https://download.library.lol/main/{}/{}/{}.{}",
-            calculate_group_id(book_id),
-            md5_value,
-            encode(title),
-            file_type
-        ))
-    } else {
-        Err("No 'md5' parameter found in the URL".to_string())
-    }
-}
-use lazy_static::lazy_static;
-lazy_static! {
-    static ref BOOK_LIBGEN_ID_SELECTOR: Selector = Selector::parse("td:first-child").unwrap();
-    static ref BOOK_PUBLISHER_SELECTOR: Selector = Selector::parse("td:nth-child(4)").unwrap();
-    static ref BOOK_FILE_TYPE_SELECTOR: Selector = Selector::parse("td:nth-child(9)").unwrap();
-    static ref BOOK_AUTHORS_SELECTOR: Selector =
-        Selector::parse("td:nth-child(2) > a:not([title])").unwrap();
-}
 // Private function to process a libgen search result
 fn process_libgen_search_result(title: &String, result_row: ElementRef<'_>) -> Option<LibgenBook> {
-    // CSS Selectors
-    // Books libgen id
-    //let book_libgen_id_selector = Selector::parse("td:first-child").unwrap();
-
     let book_id_elem = result_row.select(&BOOK_LIBGEN_ID_SELECTOR).next()?;
     let book_id = book_id_elem.inner_html().parse::<u64>().ok()?;
 
@@ -86,13 +69,6 @@ fn process_libgen_search_result(title: &String, result_row: ElementRef<'_>) -> O
         return None;
     }
 
-    // Books publisher selector
-
-    // Book file type
-
-    // Get all the authors for the book
-    let authors_selector = Selector::parse("td:nth-child(2) > a:not([title])").unwrap();
-
     // TODO: Alternate path, going to the book download page on libgen and grabbin the url there instead of skipping it (since we are creating the direct link from the info on the search page).
     let file_type = result_row
         .select(&BOOK_FILE_TYPE_SELECTOR)
@@ -106,7 +82,7 @@ fn process_libgen_search_result(title: &String, result_row: ElementRef<'_>) -> O
     let book_group_id = calculate_group_id(book_id);
 
     let authors: Vec<_> = result_row
-        .select(&authors_selector)
+        .select(&BOOK_AUTHORS_SELECTOR)
         .into_iter()
         .map(|auth| auth.inner_html())
         .collect();

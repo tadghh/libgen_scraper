@@ -1,3 +1,5 @@
+use urlencoding::encode;
+
 /// Parses the MD5 hash from a Libgen URL.
 ///
 /// Given a Libgen URL, this function attempts to extract the MD5 hash from it.
@@ -67,6 +69,26 @@ pub fn parse_md5_from_url(url: String) -> Option<String> {
 ///
 pub fn calculate_group_id(id: u64) -> u64 {
     (id / 1000) * 1000
+}
+
+// TODO: should accept mirrors
+pub fn build_direct_download_url(
+    book_id: u64,
+    url: String,
+    title: &String,
+    file_type: String,
+) -> Result<String, String> {
+    if let Some(md5_value) = parse_md5_from_url(url) {
+        Ok(format!(
+            "https://download.library.lol/main/{}/{}/{}.{}",
+            calculate_group_id(book_id),
+            md5_value,
+            encode(title),
+            file_type
+        ))
+    } else {
+        Err("No 'md5' parameter found in the URL".to_string())
+    }
 }
 
 #[cfg(test)]
