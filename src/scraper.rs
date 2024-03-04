@@ -51,13 +51,21 @@ fn build_direct_download_url(
         Err("No 'md5' parameter found in the URL".to_string())
     }
 }
+use lazy_static::lazy_static;
+lazy_static! {
+    static ref BOOK_LIBGEN_ID_SELECTOR: Selector = Selector::parse("td:first-child").unwrap();
+    static ref BOOK_PUBLISHER_SELECTOR: Selector = Selector::parse("td:nth-child(4)").unwrap();
+    static ref BOOK_FILE_TYPE_SELECTOR: Selector = Selector::parse("td:nth-child(9)").unwrap();
+    static ref BOOK_AUTHORS_SELECTOR: Selector =
+        Selector::parse("td:nth-child(2) > a:not([title])").unwrap();
+}
 // Private function to process a libgen search result
 fn process_libgen_search_result(title: &String, result_row: ElementRef<'_>) -> Option<LibgenBook> {
     // CSS Selectors
     // Books libgen id
-    let book_libgen_id_selector = Selector::parse("td:first-child").unwrap();
+    //let book_libgen_id_selector = Selector::parse("td:first-child").unwrap();
 
-    let book_id_elem = result_row.select(&book_libgen_id_selector).next()?;
+    let book_id_elem = result_row.select(&BOOK_LIBGEN_ID_SELECTOR).next()?;
     let book_id = book_id_elem.inner_html().parse::<u64>().ok()?;
 
     // CSS to grab the title of a search result
@@ -79,17 +87,15 @@ fn process_libgen_search_result(title: &String, result_row: ElementRef<'_>) -> O
     }
 
     // Books publisher selector
-    let publisher_selector: Selector = Selector::parse("td:nth-child(4)").unwrap();
 
     // Book file type
-    let file_type_selector = Selector::parse("td:nth-child(9)").unwrap();
 
     // Get all the authors for the book
     let authors_selector = Selector::parse("td:nth-child(2) > a:not([title])").unwrap();
 
     // TODO: Alternate path, going to the book download page on libgen and grabbin the url there instead of skipping it (since we are creating the direct link from the info on the search page).
     let file_type = result_row
-        .select(&file_type_selector)
+        .select(&BOOK_FILE_TYPE_SELECTOR)
         .next()
         .unwrap()
         .inner_html()
@@ -106,7 +112,7 @@ fn process_libgen_search_result(title: &String, result_row: ElementRef<'_>) -> O
         .collect();
 
     let publisher = result_row
-        .select(&publisher_selector)
+        .select(&BOOK_PUBLISHER_SELECTOR)
         .next()
         .unwrap()
         .inner_html();
