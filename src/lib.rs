@@ -15,21 +15,14 @@
 //!
 #![warn(missing_docs)]
 pub mod book;
-use book::LibgenBook;
-use reqwest::StatusCode;
-use scraper::{ElementRef, Html, Selector};
 use std::{
     error::Error,
-    fmt,
     fs::File,
     io::{Read, Write},
     net::TcpStream,
-    thread,
-    time::Duration,
 };
-use urlencoding::encode;
+pub mod scraper;
 pub mod util;
-use util::{calculate_group_id, parse_md5_from_url};
 // TODO: make docs
 
 // TODO: Maybe this is impl on the struct

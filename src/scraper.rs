@@ -1,3 +1,14 @@
+use std::{fmt, thread, time::Duration};
+
+use reqwest::StatusCode;
+use scraper::{ElementRef, Html, Selector};
+use urlencoding::encode;
+
+use crate::{
+    book::LibgenBook,
+    util::{calculate_group_id, parse_md5_from_url},
+};
+
 #[derive(Debug, PartialEq)]
 #[doc = r" The data collected from a search result."]
 pub enum LibgenError {
@@ -28,7 +39,7 @@ fn build_direct_download_url(
     title: &String,
     file_type: String,
 ) -> Result<String, String> {
-    if let Some(md5_value) = parsemd5_from_url(url) {
+    if let Some(md5_value) = parse_md5_from_url(url) {
         Ok(format!(
             "https://download.library.lol/main/{}/{}/{}.{}",
             calculate_group_id(book_id),
@@ -189,7 +200,7 @@ mod tests {
             title: "Python for Security and Networking".to_owned(),
             authors: vec!["José Manuel Ortega".to_string()],
             publisher: "Packt Publishing".to_owned(),
-            direct_link: Some("https://download.library.lol/main/3759000/book/index.php?/Python%20for%20Security%20and%20Networking.epub".to_owned())
+            direct_link: Some("https://download.library.lol/main/3759000/6bed397b612b9e3994a7dc2d6b5440ba/Python%20for%20Security%20and%20Networking.epub".to_owned())
         };
         let search_result = search_libgen(&generic_book);
         match search_result {
@@ -222,7 +233,7 @@ mod tests {
             title: "Abstract and concrete categories: the joy of cats".to_owned(),
             authors: vec!["Jiri Adamek".to_string(), " Horst Herrlich".to_string(), " George E. Strecker".to_string()],
             publisher: "Wiley-Interscience".to_owned(),
-            direct_link: Some("https://download.library.lol/main/3000/book/index.php?/Abstract%20and%20concrete%20categories%3A%20the%20joy%20of%20cats.pdf".to_owned())
+            direct_link: Some("https://download.library.lol/main/3000/5fa82be26689a4e6f4415ea068d35a9d/Abstract%20and%20concrete%20categories%3A%20the%20joy%20of%20cats.pdf".to_owned())
         };
 
         let search_result = search_libgen(&coauthored_book);
