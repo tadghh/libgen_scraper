@@ -10,12 +10,17 @@ use crate::{
     util::{build_direct_download_url, calculate_group_id},
 };
 
+const MAX_RETRIES: usize = 3;
+const TIMEOUT_DURATION: u64 = 15;
+const LIBGEN_MIRRORS: [&str; 3] = ["is", "rs", "st"];
+
 lazy_static! {
     static ref BOOK_LIBGEN_ID_SELECTOR: Selector = Selector::parse("td:first-child").unwrap();
     static ref BOOK_PUBLISHER_SELECTOR: Selector = Selector::parse("td:nth-child(4)").unwrap();
     static ref BOOK_FILE_TYPE_SELECTOR: Selector = Selector::parse("td:nth-child(9)").unwrap();
     static ref BOOK_AUTHORS_SELECTOR: Selector =
         Selector::parse("td:nth-child(2) > a:not([title])").unwrap();
+    static ref BOOK_SEARCH_RESULT_SELECTOR: Selector = Selector::parse("table.c tbody tr").unwrap();
 }
 
 #[derive(Debug, PartialEq)]
@@ -107,18 +112,12 @@ fn process_libgen_search_result(title: &String, result_row: ElementRef<'_>) -> O
 }
 
 // TODO: Clean
-const MAX_RETRIES: usize = 3;
-const TIMEOUT_DURATION: u64 = 15;
-const LIBGEN_MIRRORS: [&str; 3] = ["is", "rs", "st"];
-#[doc = r" Search for the book on libgen and return the direct download link, link is created with info on the search result page."]
+#[doc = r"Search for the book on libgen and return the direct download link, link is created with info on the search result page."]
 pub fn search_libgen(title: &String) -> Result<Option<LibgenBook>, LibgenError> {
     // make book_title html encoded
     let encoded_title = encode(&title);
     let mut libgen_search_url: String =
     format!("https://www.libgen.{}/search.php?&req={}&phrase=1&view=simple&column=title&sort=year&sortmode=DESC", LIBGEN_MIRRORS[0], encoded_title);
-
-    let book_row_selector =
-        Selector::parse("table.c tbody tr").map_err(|_| LibgenError::ParsingError)?;
 
     let mut retries = 0;
     let mut retries_domain = 0;
@@ -144,7 +143,7 @@ pub fn search_libgen(title: &String) -> Result<Option<LibgenBook>, LibgenError> 
             retries_domain = if retries_domain < LIBGEN_MIRRORS.len() - 1 {
                 retries_domain + 1
             } else {
-                thread::sleep(Duration::from_secs(TIMEOUT_DURATION)); // Adding a delay between retries
+                thread::sleep(Duration::from_secs(TIMEOUT_DURATION));
                 0
             };
             libgen_search_url = format!("https://www.libgen.{}/search.php?&req={}&phrase=1&view=simple&column=title&sort=year&sortmode=DESC", LIBGEN_MIRRORS[retries_domain], encoded_title);
@@ -158,10 +157,15 @@ pub fn search_libgen(title: &String) -> Result<Option<LibgenBook>, LibgenError> 
                 Html::parse_document(&response.text().map_err(|_| LibgenError::ParsingError)?);
 
             let book_data = document
-                .select(&book_row_selector)
+                .select(&BOOK_SEARCH_RESULT_SELECTOR)
                 .find_map(|srch_result| process_libgen_search_result(title, srch_result));
+
             // TODO: Return error if no book, its up to the user to handle it
-            return Ok(book_data);
+            return if book_data.is_some() {
+                Ok(book_data)
+            } else {
+                Ok(None)
+            };
         }
         eprintln!("Server responded with {}", response.status());
         return Err(LibgenError::NetworkError);
