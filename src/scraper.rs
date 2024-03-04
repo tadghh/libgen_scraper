@@ -1,26 +1,13 @@
-use lazy_static::lazy_static;
 use reqwest::{Client, Error, Response, StatusCode};
-use scraper::{ElementRef, Html, Selector};
+use scraper::Html;
 use std::{fmt, thread, time::Duration};
 use urlencoding::encode;
 
-use crate::{
-    book::LibgenBook,
-    util::{build_direct_download_url, calculate_group_id},
-};
+use crate::{book::LibgenBook, processor::Processor};
 
 const MAX_RETRIES: usize = 3;
 const TIMEOUT_DURATION: u64 = 15;
 const LIBGEN_MIRRORS: [&str; 3] = ["is", "rs", "st"];
-
-lazy_static! {
-    static ref BOOK_LIBGEN_ID_SELECTOR: Selector = Selector::parse("td:first-child").unwrap();
-    static ref BOOK_PUBLISHER_SELECTOR: Selector = Selector::parse("td:nth-child(4)").unwrap();
-    static ref BOOK_FILE_TYPE_SELECTOR: Selector = Selector::parse("td:nth-child(9)").unwrap();
-    static ref BOOK_AUTHORS_SELECTOR: Selector =
-        Selector::parse("td:nth-child(2) > a:not([title])").unwrap();
-    static ref BOOK_SEARCH_RESULT_SELECTOR: Selector = Selector::parse("table.c tbody tr").unwrap();
-}
 
 #[derive(Debug, PartialEq)]
 #[doc = r" The data collected from a search result."]
@@ -50,75 +37,19 @@ impl fmt::Display for LibgenError {
     }
 }
 
-// Private function to process a libgen search result
-fn parse_search_result(title: &str, result_row: ElementRef<'_>) -> Option<LibgenBook> {
-    let book_id_elem = result_row.select(&BOOK_LIBGEN_ID_SELECTOR).next()?;
-
-    let book_id = book_id_elem.inner_html().parse::<u64>().ok()?;
-
-    // CSS to grab the title of a search result
-    let title_cell_selector =
-        Selector::parse(&format!("td[width='500'] > a[id='{}']", book_id)).unwrap();
-
-    let title_cell = result_row.select(&title_cell_selector).next()?;
-
-    let search_result_title = title_cell.text().nth(0)?;
-
-    // If the search result title doesnt contain/match the title parameter return none. We know it isn't the correct book
-    if !search_result_title
-        .to_ascii_lowercase()
-        .contains(&title.to_ascii_lowercase())
-    {
-        return None;
-    }
-
-    // TODO: Alternate path, going to the book download page on libgen and grabbin the url there instead of skipping it (since we are creating the direct link from the info on the search page).
-    let file_type = result_row
-        .select(&BOOK_FILE_TYPE_SELECTOR)
-        .next()
-        .unwrap()
-        .inner_html()
-        .to_owned();
-
-    let href_book_link = title_cell.value().attr("href")?.to_owned();
-
-    let book_group_id = calculate_group_id(book_id);
-
-    let authors: Vec<_> = result_row
-        .select(&BOOK_AUTHORS_SELECTOR)
-        .into_iter()
-        .map(|auth| auth.inner_html())
-        .collect();
-
-    let publisher = result_row
-        .select(&BOOK_PUBLISHER_SELECTOR)
-        .next()
-        .unwrap()
-        .inner_html();
-
-    let direct_link =
-        build_direct_download_url(book_id, href_book_link, &title.to_string(), file_type).ok();
-
-    Some(LibgenBook {
-        title: title.to_owned(),
-        libgen_id: book_id,
-        libgen_group_id: book_group_id,
-        publisher,
-        authors,
-        direct_link,
-    })
-}
-
 /// The client object for acting agaisnt libgen
 pub struct LibgenClient {
     // The request client
     client: Client,
+    processor: Processor,
 }
+
 impl LibgenClient {
     /// Create a reqwest client :3
     pub fn new() -> LibgenClient {
         LibgenClient {
             client: Client::new(),
+            processor: Processor::new(),
         }
     }
 
@@ -172,8 +103,8 @@ impl LibgenClient {
                 );
 
                 let book_data = document
-                    .select(&BOOK_SEARCH_RESULT_SELECTOR)
-                    .find_map(|srch_result| parse_search_result(title, srch_result));
+                    .select(&self.processor.book_search_result_selector)
+                    .find_map(|srch_result| self.processor.parse_search_result(title, srch_result));
 
                 return Ok(book_data);
             }

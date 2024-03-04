@@ -14,15 +14,17 @@
 //!
 //!
 #![warn(missing_docs)]
-pub mod book;
 use std::{
     error::Error,
     fs::File,
     io::{Read, Write},
     net::TcpStream,
 };
+pub mod book;
+pub mod processor;
 pub mod scraper;
 pub mod util;
+
 // TODO: make docs
 
 // TODO: Maybe this is impl on the struct
