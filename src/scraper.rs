@@ -54,6 +54,7 @@ impl fmt::Display for LibgenError {
 // Private function to process a libgen search result
 fn process_libgen_search_result(title: &String, result_row: ElementRef<'_>) -> Option<LibgenBook> {
     let book_id_elem = result_row.select(&BOOK_LIBGEN_ID_SELECTOR).next()?;
+
     let book_id = book_id_elem.inner_html().parse::<u64>().ok()?;
 
     // CSS to grab the title of a search result
@@ -61,6 +62,7 @@ fn process_libgen_search_result(title: &String, result_row: ElementRef<'_>) -> O
         Selector::parse(&format!("td[width='500'] > a[id='{}']", book_id)).unwrap();
 
     let title_cell = result_row.select(&title_cell_selector).next()?;
+
     let search_result_title = title_cell.text().nth(0)?;
 
     // If the search result title doesnt contain/match the title parameter return none. We know it isn't the correct book
@@ -68,8 +70,6 @@ fn process_libgen_search_result(title: &String, result_row: ElementRef<'_>) -> O
         .to_ascii_lowercase()
         .contains(&title.to_ascii_lowercase())
     {
-        println!("No title");
-        println!("{:?}", search_result_title);
         //the result does not contain the given example/shortened title (comparing to method parameter this is the books title)
         return None;
     }
@@ -116,6 +116,7 @@ fn process_libgen_search_result(title: &String, result_row: ElementRef<'_>) -> O
 pub fn search_libgen(title: &String) -> Result<Option<LibgenBook>, LibgenError> {
     // make book_title html encoded
     let encoded_title = encode(&title);
+
     let mut libgen_search_url: String =
     format!("https://www.libgen.{}/search.php?&req={}&phrase=1&view=simple&column=title&sort=year&sortmode=DESC", LIBGEN_MIRRORS[0], encoded_title);
 
@@ -132,7 +133,6 @@ pub fn search_libgen(title: &String) -> Result<Option<LibgenBook>, LibgenError> 
         {
             Ok(response) => response,
             Err(_) => {
-                eprintln!("Failed to get response");
                 return Err(LibgenError::ConnectionError);
             }
         };
@@ -160,14 +160,9 @@ pub fn search_libgen(title: &String) -> Result<Option<LibgenBook>, LibgenError> 
                 .select(&BOOK_SEARCH_RESULT_SELECTOR)
                 .find_map(|srch_result| process_libgen_search_result(title, srch_result));
 
-            // TODO: Return error if no book, its up to the user to handle it
-            return if book_data.is_some() {
-                Ok(book_data)
-            } else {
-                Ok(None)
-            };
+            return Ok(book_data);
         }
-        eprintln!("Server responded with {}", response.status());
+
         return Err(LibgenError::NetworkError);
     }
     Err(LibgenError::TimeoutError)
