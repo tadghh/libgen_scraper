@@ -75,24 +75,25 @@ impl LibgenClient {
             let libgen_search_url: String = format!("https://www.libgen.{}/search.php?&req={}&phrase=1&view=simple&column=title&sort=year&sortmode=DESC", LIBGEN_MIRRORS[retries_domain], encoded_title);
 
             let response = match self.send_request(&libgen_search_url).await {
-                Ok(response) => response,
+                Ok(response) => {
+                    // We need to be gentlemen and not spam libgen
+                    if response.status() == StatusCode::SERVICE_UNAVAILABLE {
+                        retries += 1;
+                        retries_domain = if retries_domain < LIBGEN_MIRRORS.len() - 1 {
+                            retries_domain + 1
+                        } else {
+                            thread::sleep(Duration::from_secs(TIMEOUT_DURATION));
+                            0
+                        };
+
+                        continue;
+                    }
+                    response
+                }
                 Err(_) => {
                     return Err(LibgenError::ConnectionError);
                 }
             };
-
-            // We need to be gentlemen and not spam libgen
-            if response.status() == StatusCode::SERVICE_UNAVAILABLE {
-                retries += 1;
-                retries_domain = if retries_domain < LIBGEN_MIRRORS.len() - 1 {
-                    retries_domain + 1
-                } else {
-                    thread::sleep(Duration::from_secs(TIMEOUT_DURATION));
-                    0
-                };
-
-                continue;
-            }
 
             if response.status() == StatusCode::OK {
                 let document = Html::parse_document(
@@ -101,12 +102,10 @@ impl LibgenClient {
                         .await
                         .map_err(|_| LibgenError::ParsingError)?,
                 );
-
-                let book_data = document
-                    .select(&self.processor.book_search_result_selector)
-                    .find_map(|srch_result| self.processor.parse_search_result(title, srch_result));
-
-                return Ok(book_data);
+                return Ok(self
+                    .processor
+                    .search_title_in_document(document, title)
+                    .await?);
             }
 
             return Err(LibgenError::NetworkError);

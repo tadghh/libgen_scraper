@@ -1,8 +1,9 @@
 use crate::{
     book::LibgenBook,
+    scraper::LibgenError,
     util::{build_direct_download_url, calculate_group_id},
 };
-use scraper::{ElementRef, Selector};
+use scraper::{ElementRef, Html, Selector};
 
 /// A html processor to grab needed elements
 pub struct Processor {
@@ -31,11 +32,7 @@ impl Processor {
     }
 
     /// Parses the html from a search result on libgen
-    pub fn parse_search_result(
-        &self,
-        title: &str,
-        result_row: ElementRef<'_>,
-    ) -> Option<LibgenBook> {
+    fn parse_search_result(&self, title: &str, result_row: ElementRef<'_>) -> Option<LibgenBook> {
         let book_id_elem = result_row.select(&self.book_libgen_id_selector).next()?;
 
         let book_id = book_id_elem.inner_html().parse::<u64>().ok()?;
@@ -91,5 +88,19 @@ impl Processor {
             authors,
             direct_link,
         })
+    }
+
+    // TODO: Benchmark this
+    /// Looks for a books title in the html reponse
+    pub async fn search_title_in_document(
+        &self,
+        html_document: Html,
+        title: &str,
+    ) -> Result<Option<LibgenBook>, LibgenError> {
+        let book_data = html_document
+            .select(&self.book_search_result_selector)
+            .find_map(|srch_result| self.parse_search_result(title, srch_result));
+
+        return Ok(book_data);
     }
 }
