@@ -141,13 +141,13 @@ impl LibgenClient {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use tracing::{info, Level};
-    use tracing_subscriber::FmtSubscriber;
 
-    #[tokio::test]
-    async fn search_book_with_single_author() {
+    #[test]
+    fn search_book_with_single_author() {
         let test_client = LibgenClient::new();
+
         let generic_book = "Python for Security and Networking".to_string();
+
         let valid_result = LibgenBook {
             libgen_id: 3759134,
             libgen_group_id: 3759000,
@@ -156,54 +156,16 @@ mod tests {
             publisher: "Packt Publishing".to_owned(),
             direct_link: Some("https://download.library.lol/main/3759000/6bed397b612b9e3994a7dc2d6b5440ba/Python%20for%20Security%20and%20Networking.epub".to_owned())
         };
+        let result = test_client.search_book_by_title(&generic_book);
 
-        match test_client.search_book_by_title(&generic_book).await {
-            Ok(live_multi_author_return) => {
-                // Handle the Option inside the Result
-                match live_multi_author_return {
-                    Some(actual_result) => {
-                        // Assert equality
-                        assert_eq!(valid_result, actual_result);
+        match tokio::runtime::Runtime::new().unwrap().block_on(result) {
+            Ok(actual_result) => {
+                // Assert equality
+                match actual_result {
+                    Some(result) => {
+                        assert_eq!(valid_result, result);
                     }
-                    None => {
-                        // If search result is None, fail the test
-                        panic!("Expected result not found");
-                    }
-                }
-            }
-            Err(_) => {
-                // If search function returns an error, fail the test
-                panic!("Error occurred during search");
-            }
-        }
-    }
-
-    #[tokio::test]
-    async fn search_book_with_multiple_authors() {
-        let test_client = LibgenClient::new();
-
-        let coauthored_book = "Abstract and concrete categories: the joy of cats".to_string();
-        let valid_cat_result = LibgenBook{
-            libgen_id: 3750,
-            libgen_group_id: 3000,
-            title: "Abstract and concrete categories: the joy of cats".to_owned(),
-            authors: vec!["Jiri Adamek".to_string(), " Horst Herrlich".to_string(), " George E. Strecker".to_string()],
-            publisher: "Wiley-Interscience".to_owned(),
-            direct_link: Some("https://download.library.lol/main/3000/5fa82be26689a4e6f4415ea068d35a9d/Abstract%20and%20concrete%20categories%3A%20the%20joy%20of%20cats.pdf".to_owned())
-        };
-
-        match test_client.search_book_by_title(&coauthored_book).await {
-            Ok(live_multi_author_return) => {
-                // Handle the Option inside the Result
-                match live_multi_author_return {
-                    Some(actual_result) => {
-                        // Assert equality
-                        assert_eq!(valid_cat_result, actual_result);
-                    }
-                    None => {
-                        // If search result is None, fail the test
-                        panic!("Expected result not found");
-                    }
+                    None => panic!("search result was None"),
                 }
             }
             Err(err) => {
@@ -213,112 +175,158 @@ mod tests {
         }
     }
 
-    #[tokio::test]
-    async fn bench_book_search() {
-        let subscriber = FmtSubscriber::builder()
-            .with_max_level(Level::INFO)
-            .without_time()
-            .finish();
-        tracing::subscriber::set_global_default(subscriber)
-            .expect("setting default subscriber failed");
+    #[test]
+    fn search_book_with_multiple_authors() {
+        let test_client = LibgenClient::new();
 
-        // Inner test to search for five books
-        search_for_five_books().await;
+        let coauthored_book = "Abstract and concrete categories: the joy of cats".to_string();
 
-        // Inner test to search for fifteen books
-        search_for_fifteen_books().await;
-    }
+        let valid_cat_result = LibgenBook{
+            libgen_id: 3750,
+            libgen_group_id: 3000,
+            title: "Abstract and concrete categories: the joy of cats".to_owned(),
+            authors: vec!["Jiri Adamek".to_string(), " Horst Herrlich".to_string(), " George E. Strecker".to_string()],
+            publisher: "Wiley-Interscience".to_owned(),
+            direct_link: Some("https://download.library.lol/main/3000/5fa82be26689a4e6f4415ea068d35a9d/Abstract%20and%20concrete%20categories%3A%20the%20joy%20of%20cats.pdf".to_owned())
+        };
 
-    async fn search_for_five_books() {
-        // Initialize a LibgenClient instance
-        let libgen_client = LibgenClient::new();
+        let result = test_client.search_book_by_title(&coauthored_book);
 
-        // Define a list of titles to search
-        let titles = vec![
-            "The Predator (Animorphs)",
-            "Color Atlas of Pharmacology",
-            "Physics of life",
-            "Physics and Chemistry Basis of Biotechnology",
-            "Medical Imaging Physics",
-        ];
-
-        // Call the search_books_by_titles method and collect the results
-        let start_time = std::time::Instant::now();
-        let results = libgen_client.search_books_by_titles(titles).await;
-        let end_time = std::time::Instant::now();
-
-        // Calculate the duration
-        let duration = end_time - start_time;
-
-        // Iterate over the results and perform assertions
-        for result in results {
-            // Check that each result is not an error
-            assert!(result.is_ok());
-
-            // Unwrap the result and check that the option is not None
-            let book_data = result.unwrap();
-            assert!(book_data.is_some());
-
-            // Print or perform further assertions with the book data if needed
-            if let Some(book) = book_data {
-                info!("Found book: {:?}", book.title);
+        match tokio::runtime::Runtime::new().unwrap().block_on(result) {
+            Ok(actual_result) => {
+                // Assert equality
+                match actual_result {
+                    Some(result) => {
+                        assert_eq!(valid_cat_result, result);
+                    }
+                    None => panic!("search result was None"),
+                }
+            }
+            Err(err) => {
+                // If search function returns an error, fail the test
+                panic!("Error occurred during search: {:?}", err);
             }
         }
-        info!(
-            "Search for five books took {} seconds",
-            duration.as_secs_f64()
-        );
-    }
-
-    async fn search_for_fifteen_books() {
-        // Initialize a LibgenClient instance
-        let libgen_client = LibgenClient::new();
-
-        // Define a list of titles to search
-        let titles = vec![
-        "The Predator (Animorphs)",
-        "Color Atlas of Pharmacology",
-        "Physics of life",
-        "Physics and Chemistry Basis of Biotechnology",
-        "Medical Imaging Physics",
-        "Lectures On Statistical Physics And Protein Folding",
-        "Structural theory of automata, semigroups, and universal algebra",
-        "Computer Algebra Recipes for Mathematical Physics",
-        "Quantum Information: An Introduction to Basic Theoretical Concepts and Experiments",
-        "Terahertz Optoelectronics",
-        "Leaving Earth: Space Stations, Rival Superpowers, and the Quest for Interplanetary Travel",
-        "Classical Banach-Lie algebras and Banach-Lie groups of operators in Hilbert space",
-        "Grammar, punctuation, and capitalization: a handbook for technical writers and editors",
-        "Canonical Perturbation Theories: Degenerate Systems and Resonance",
-        "The rigged hilbert space and quantum mechanics",
-        "The mathematical theory of symmetry in solids; representation theory for point groups and space groups",
-    ];
-
-        // Call the search_books_by_titles method and collect the results
-        let start_time = std::time::Instant::now();
-        let results = libgen_client.search_books_by_titles(titles).await;
-        let end_time = std::time::Instant::now();
-
-        // Calculate the duration
-        let duration = end_time - start_time;
-
-        // Iterate over the results and perform assertions
-        for result in results {
-            // Check that each result is not an error
-            assert!(result.is_ok());
-
-            // Unwrap the result and check that the option is not None
-            let book_data = result.unwrap();
-            assert!(book_data.is_some());
-
-            // Print or perform further assertions with the book data if needed
-            if let Some(book) = book_data {
-                info!("Found book: {:?}", book.title);
-            }
-        }
-        info!(
-            "Search for fifteen books took {} seconds",
-            duration.as_secs_f64()
-        );
     }
 }
+// #[test]
+//     fn blocking_search_five_books() {
+//         let test_client = LibgenClient::new();
+//         let titles = vec![
+//             "The Predator (Animorphs)",
+//             "Color Atlas of Pharmacology",
+//             "Physics of life",
+//             "Physics and Chemistry Basis of Biotechnology",
+//             "Medical Imaging Physics",
+//         ];
+//         let start_time = std::time::Instant::now();
+
+//         for title in titles {
+//             let result = test_client.search_book_by_title(&title);
+
+//             // Block the main thread until the search operation completes
+//             let blocking_runtime = tokio::runtime::Runtime::new().unwrap();
+//             blocking_runtime
+//                 .block_on(result)
+//                 .expect("Error occurred during search");
+//         }
+
+//         let end_time = std::time::Instant::now();
+//         let duration = end_time - start_time;
+//         println!(
+//             "Single search for five books took {} seconds",
+//             duration.as_secs_f64()
+//         );
+//     }
+// async fn search_for_five_books() {
+//     // Initialize a LibgenClient instance
+//     let libgen_client = LibgenClient::new();
+
+//     // Define a list of titles to search
+//     let titles = vec![
+//         "The Predator (Animorphs)",
+//         "Color Atlas of Pharmacology",
+//         "Physics of life",
+//         "Physics and Chemistry Basis of Biotechnology",
+//         "Medical Imaging Physics",
+//     ];
+
+//     // Call the search_books_by_titles method and collect the results
+//     let start_time = std::time::Instant::now();
+//     let results = libgen_client.search_books_by_titles(titles).await;
+//     let end_time = std::time::Instant::now();
+
+//     // Calculate the duration
+//     let duration = end_time - start_time;
+
+//     // Iterate over the results and perform assertions
+//     for result in results {
+//         // Check that each result is not an error
+//         assert!(result.is_ok());
+
+//         // Unwrap the result and check that the option is not None
+//         let book_data = result.unwrap();
+//         assert!(book_data.is_some());
+
+//         // Print or perform further assertions with the book data if needed
+//         if let Some(book) = book_data {
+//             info!("Found book: {:?}", book.title);
+//         }
+//     }
+//     info!(
+//         "Search for five books took {} seconds",
+//         duration.as_secs_f64()
+//     );
+// }
+
+// async fn search_for_fifteen_books() {
+//     // Initialize a LibgenClient instance
+//     let libgen_client = LibgenClient::new();
+
+//     // Define a list of titles to search
+//     let titles = vec![
+//     "The Predator (Animorphs)",
+//     "Color Atlas of Pharmacology",
+//     "Physics of life",
+//     "Physics and Chemistry Basis of Biotechnology",
+//     "Medical Imaging Physics",
+//     "Lectures On Statistical Physics And Protein Folding",
+//     "Structural theory of automata, semigroups, and universal algebra",
+//     "Computer Algebra Recipes for Mathematical Physics",
+//     "Quantum Information: An Introduction to Basic Theoretical Concepts and Experiments",
+//     "Terahertz Optoelectronics",
+//     "Leaving Earth: Space Stations, Rival Superpowers, and the Quest for Interplanetary Travel",
+//     "Classical Banach-Lie algebras and Banach-Lie groups of operators in Hilbert space",
+//     "Grammar, punctuation, and capitalization: a handbook for technical writers and editors",
+//     "Canonical Perturbation Theories: Degenerate Systems and Resonance",
+//     "The rigged hilbert space and quantum mechanics",
+//     "The mathematical theory of symmetry in solids; representation theory for point groups and space groups",
+// ];
+
+//     // Call the search_books_by_titles method and collect the results
+//     let start_time = std::time::Instant::now();
+//     let results = libgen_client.search_books_by_titles(titles).await;
+//     let end_time = std::time::Instant::now();
+
+//     // Calculate the duration
+//     let duration = end_time - start_time;
+
+//     // Iterate over the results and perform assertions
+//     for result in results {
+//         // Check that each result is not an error
+//         assert!(result.is_ok());
+
+//         // Unwrap the result and check that the option is not None
+//         let book_data = result.unwrap();
+//         assert!(book_data.is_some());
+
+//         // Print or perform further assertions with the book data if needed
+//         if let Some(book) = book_data {
+//             info!("Found book: {:?}", book.title);
+//         }
+//     }
+//     info!(
+//         "Search for fifteen books took {} seconds",
+//         duration.as_secs_f64()
+//     );
+// }
