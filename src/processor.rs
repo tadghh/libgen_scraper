@@ -43,16 +43,24 @@ impl Processor {
 
         let title_cell = result_row.select(&title_cell_selector).next()?;
 
-        let search_result_title = title_cell.text().nth(0)?;
+        let search_result_title = title_cell.text().nth(0)?.trim();
 
         // If the search result title doesnt contain/match the title parameter return none. We know it isn't the correct book
-        if !search_result_title
+        // if !search_result_title
+        //     .to_ascii_lowercase()
+        //     .contains(&title.to_ascii_lowercase())
+        // {
+        //     return None;
+        // }
+
+        let search_result_title_trimmed = search_result_title.trim();
+        let title_trimmed = title.trim();
+        if !search_result_title_trimmed
             .to_ascii_lowercase()
-            .contains(&title.to_ascii_lowercase())
+            .starts_with(&title_trimmed.to_ascii_lowercase())
         {
             return None;
         }
-
         // TODO: Alternate path, going to the book download page on libgen and grabbin the url there instead of skipping it (since we are creating the direct link from the info on the search page).
         let file_type: String = result_row
             .select(&self.book_file_type_selector)
@@ -81,7 +89,7 @@ impl Processor {
             build_direct_download_url(book_id, href_book_link, &title.to_string(), file_type).ok();
 
         Some(LibgenBook {
-            title: title.to_owned(),
+            title: search_result_title.to_owned(),
             libgen_id: book_id,
             libgen_group_id: book_group_id,
             publisher,
@@ -101,5 +109,56 @@ impl Processor {
             .find_map(|srch_result| self.parse_search_result(title, srch_result));
 
         Ok(book_data)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::fs;
+
+    use super::*;
+
+    #[test]
+    fn parse_result_existing_title() {
+        // Existing as in its in the downloaded html file in /benches
+        let client_processor = Processor::new();
+        let existing_book_title = "Performance Evaluation and Benchmarking".to_string();
+
+        let html_content = fs::read_to_string("benches/benchmark_page.htm").unwrap();
+
+        let document = Html::parse_document(&html_content);
+        let search_value =
+            client_processor.search_title_in_document(&document, &existing_book_title);
+        match search_value {
+            Ok(val) => {
+                //assert!(val.is_some())
+                match val {
+                    Some(book) => {
+                        assert!(book.title == existing_book_title)
+                    }
+                    None => panic!("There was no book found"),
+                }
+            }
+            Err(_) => panic!("Failed to process document"),
+        }
+    }
+
+    #[test]
+    fn parse_result_partial_existing_title() {
+        // Existing, as in its located in the downloaded html file /benches
+        let client_processor = Processor::new();
+        let existing_book_title_partial = "and Benchmarking".to_string();
+
+        let html_content = fs::read_to_string("benches/benchmark_page.htm").unwrap();
+
+        let document = Html::parse_document(&html_content);
+        let search_value =
+            client_processor.search_title_in_document(&document, &existing_book_title_partial);
+        match search_value {
+            Ok(val) => {
+                assert!(val.is_none());
+            }
+            Err(_) => panic!("Failed to process document"),
+        }
     }
 }

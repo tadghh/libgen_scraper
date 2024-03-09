@@ -139,7 +139,7 @@ mod tests {
         let valid_result = LibgenBook {
             libgen_id: 3759134,
             libgen_group_id: 3759000,
-            title: "Python for Security and Networking".to_owned(),
+            title: "Python for Security and Networking: Leverage Python modules and tools in securing your network and applications".to_owned(),
             authors: vec!["José Manuel Ortega".to_string()],
             publisher: "Packt Publishing".to_owned(),
             direct_link: Some("https://download.library.lol/main/3759000/6bed397b612b9e3994a7dc2d6b5440ba/Python%20for%20Security%20and%20Networking.epub".to_owned())

@@ -10,6 +10,7 @@ pub fn processor_benchmark(c: &mut Criterion) {
     let mut group = c.benchmark_group("html-processing");
     group.sample_size(100);
 
+    // TODO: Rename
     let libgen_client = Processor::new();
     let search_string = "benchmark".to_string();
     let search_string_worst = "Benchmarking Security and Trust in Europe and the Us".to_string();
