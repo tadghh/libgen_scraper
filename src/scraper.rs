@@ -141,6 +141,8 @@ impl LibgenClient {
 #[cfg(test)]
 mod tests {
     use super::*;
+    use tracing::{info, Level};
+    use tracing_subscriber::FmtSubscriber;
 
     #[tokio::test]
     async fn search_book_with_single_author() {
@@ -210,60 +212,113 @@ mod tests {
             }
         }
     }
+
+    #[tokio::test]
+    async fn bench_book_search() {
+        let subscriber = FmtSubscriber::builder()
+            .with_max_level(Level::INFO)
+            .without_time()
+            .finish();
+        tracing::subscriber::set_global_default(subscriber)
+            .expect("setting default subscriber failed");
+
+        // Inner test to search for five books
+        search_for_five_books().await;
+
+        // Inner test to search for fifteen books
+        search_for_fifteen_books().await;
+    }
+
+    async fn search_for_five_books() {
+        // Initialize a LibgenClient instance
+        let libgen_client = LibgenClient::new();
+
+        // Define a list of titles to search
+        let titles = vec![
+            "The Predator (Animorphs)",
+            "Color Atlas of Pharmacology",
+            "Physics of life",
+            "Physics and Chemistry Basis of Biotechnology",
+            "Medical Imaging Physics",
+        ];
+
+        // Call the search_books_by_titles method and collect the results
+        let start_time = std::time::Instant::now();
+        let results = libgen_client.search_books_by_titles(titles).await;
+        let end_time = std::time::Instant::now();
+
+        // Calculate the duration
+        let duration = end_time - start_time;
+
+        // Iterate over the results and perform assertions
+        for result in results {
+            // Check that each result is not an error
+            assert!(result.is_ok());
+
+            // Unwrap the result and check that the option is not None
+            let book_data = result.unwrap();
+            assert!(book_data.is_some());
+
+            // Print or perform further assertions with the book data if needed
+            if let Some(book) = book_data {
+                info!("Found book: {:?}", book.title);
+            }
+        }
+        info!(
+            "Search for five books took {} seconds",
+            duration.as_secs_f64()
+        );
+    }
+
+    async fn search_for_fifteen_books() {
+        // Initialize a LibgenClient instance
+        let libgen_client = LibgenClient::new();
+
+        // Define a list of titles to search
+        let titles = vec![
+        "The Predator (Animorphs)",
+        "Color Atlas of Pharmacology",
+        "Physics of life",
+        "Physics and Chemistry Basis of Biotechnology",
+        "Medical Imaging Physics",
+        "Lectures On Statistical Physics And Protein Folding",
+        "Structural theory of automata, semigroups, and universal algebra",
+        "Computer Algebra Recipes for Mathematical Physics",
+        "Quantum Information: An Introduction to Basic Theoretical Concepts and Experiments",
+        "Terahertz Optoelectronics",
+        "Leaving Earth: Space Stations, Rival Superpowers, and the Quest for Interplanetary Travel",
+        "Classical Banach-Lie algebras and Banach-Lie groups of operators in Hilbert space",
+        "Grammar, punctuation, and capitalization: a handbook for technical writers and editors",
+        "Canonical Perturbation Theories: Degenerate Systems and Resonance",
+        "The rigged hilbert space and quantum mechanics",
+        "The mathematical theory of symmetry in solids; representation theory for point groups and space groups",
+    ];
+
+        // Call the search_books_by_titles method and collect the results
+        let start_time = std::time::Instant::now();
+        let results = libgen_client.search_books_by_titles(titles).await;
+        let end_time = std::time::Instant::now();
+
+        // Calculate the duration
+        let duration = end_time - start_time;
+
+        // Iterate over the results and perform assertions
+        for result in results {
+            // Check that each result is not an error
+            assert!(result.is_ok());
+
+            // Unwrap the result and check that the option is not None
+            let book_data = result.unwrap();
+            assert!(book_data.is_some());
+
+            // Print or perform further assertions with the book data if needed
+            if let Some(book) = book_data {
+                info!("Found book: {:?}", book.title);
+            }
+        }
+        info!(
+            "Search for fifteen books took {} seconds",
+            duration.as_secs_f64()
+        );
+    }
 }
-// // TODO: Clean
-// #[doc = r"Search for the book on libgen and return the direct download link, link is created with info on the search result page."]
-// pub fn search_libgen(title: &String) -> Result<Option<LibgenBook>, LibgenError> {
-//     // make book_title html encoded
-//     let encoded_title = encode(&title);
-//     // struct impl new client
-//     let mut libgen_search_url: String =
-//     format!("https://www.libgen.{}/search.php?&req={}&phrase=1&view=simple&column=title&sort=year&sortmode=DESC", LIBGEN_MIRRORS[0], encoded_title);
-
-//     let mut retries = 0;
-//     let mut retries_domain = 0;
-//     let client = reqwest::blocking::Client::new();
-
-//     // If we send requests to quickly, response 503/server is busy requiring us to loop and retry
-//     while retries <= MAX_RETRIES {
-//         let response = match client
-//             .get(&libgen_search_url)
-//             .timeout(Duration::from_secs(TIMEOUT_DURATION))
-//             .send()
-//         {
-//             Ok(response) => response,
-//             Err(_) => {
-//                 return Err(LibgenError::ConnectionError);
-//             }
-//         };
-
-//         // We need to be gentlemen and not spam libgen
-//         if response.status() == StatusCode::SERVICE_UNAVAILABLE {
-//             retries += 1;
-//             retries_domain = if retries_domain < LIBGEN_MIRRORS.len() - 1 {
-//                 retries_domain + 1
-//             } else {
-//                 thread::sleep(Duration::from_secs(TIMEOUT_DURATION));
-//                 0
-//             };
-//             libgen_search_url = format!("https://www.libgen.{}/search.php?&req={}&phrase=1&view=simple&column=title&sort=year&sortmode=DESC", LIBGEN_MIRRORS[retries_domain], encoded_title);
-//             eprintln!("Waiting...");
-
-//             continue;
-//         }
-
-//         if response.status() == StatusCode::OK {
-//             let document =
-//                 Html::parse_document(&response.text().map_err(|_| LibgenError::ParsingError)?);
-
-//             let book_data = document
-//                 .select(&BOOK_SEARCH_RESULT_SELECTOR)
-//                 .find_map(|srch_result| parse_search_result(title, srch_result));
-
-//             return Ok(book_data);
-//         }
-
-//         return Err(LibgenError::NetworkError);
-//     }
-//     Err(LibgenError::TimeoutError)
-// }
