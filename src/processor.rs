@@ -70,9 +70,6 @@ impl Processor {
 
         let href_book_link: String = title_cell.value().attr("href")?.to_string();
 
-        // TODO: Add as impl
-        let book_group_id = calculate_group_id(book_id);
-
         let authors: Vec<_> = result_row
             .select(&self.book_authors_selector)
             .into_iter()
@@ -91,7 +88,6 @@ impl Processor {
         Some(LibgenBook {
             title: search_result_title.to_owned(),
             libgen_id: book_id,
-            libgen_group_id: book_group_id,
             publisher,
             authors,
             direct_link,

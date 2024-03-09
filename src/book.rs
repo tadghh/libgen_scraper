@@ -11,7 +11,7 @@ pub struct LibgenBook {
     /// The books id on libgen
     pub libgen_id: u64,
     /// The group id of the book
-    pub libgen_group_id: u64,
+
     /// Books title
     pub title: String,
     /// Authors who made the book

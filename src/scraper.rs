@@ -138,7 +138,6 @@ mod tests {
 
         let valid_result = LibgenBook {
             libgen_id: 3759134,
-            libgen_group_id: 3759000,
             title: "Python for Security and Networking: Leverage Python modules and tools in securing your network and applications".to_owned(),
             authors: vec!["José Manuel Ortega".to_string()],
             publisher: "Packt Publishing".to_owned(),
@@ -171,7 +170,6 @@ mod tests {
 
         let valid_cat_result = LibgenBook{
             libgen_id: 3750,
-            libgen_group_id: 3000,
             title: "Abstract and concrete categories: the joy of cats".to_owned(),
             authors: vec!["Jiri Adamek".to_string(), " Horst Herrlich".to_string(), " George E. Strecker".to_string()],
             publisher: "Wiley-Interscience".to_owned(),
