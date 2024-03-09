@@ -102,10 +102,7 @@ impl LibgenClient {
                         .await
                         .map_err(|_| LibgenError::ParsingError)?,
                 );
-                return Ok(self
-                    .processor
-                    .search_title_in_document(document, title)
-                    .await?);
+                return Ok(self.processor.search_title_in_document(document, title)?);
             }
 
             return Err(LibgenError::NetworkError);

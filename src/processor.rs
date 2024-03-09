@@ -92,7 +92,7 @@ impl Processor {
 
     // TODO: Benchmark this
     /// Looks for a books title in the html reponse
-    pub async fn search_title_in_document(
+    pub fn search_title_in_document(
         &self,
         html_document: Html,
         title: &str,
