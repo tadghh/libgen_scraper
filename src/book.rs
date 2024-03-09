@@ -10,8 +10,6 @@ use std::{
 pub struct LibgenBook {
     /// The books id on libgen
     pub libgen_id: u64,
-    /// The group id of the book
-
     /// Books title
     pub title: String,
     /// Authors who made the book

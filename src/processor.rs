@@ -35,24 +35,19 @@ impl Processor {
     fn parse_search_result(&self, title: &str, result_row: ElementRef<'_>) -> Option<LibgenBook> {
         let book_id_elem = result_row.select(&self.book_libgen_id_selector).next()?;
 
-        let book_id = book_id_elem.inner_html().parse::<u64>().ok()?;
+        let libgen_id = book_id_elem.inner_html().parse::<u64>().ok()?;
 
         // CSS to grab the title of a search result
         let title_cell_selector =
-            Selector::parse(&format!("td[width='500'] > a[id='{}']", book_id)).unwrap();
+            Selector::parse(&format!("td[width='500'] > a[id='{}']", libgen_id)).unwrap();
 
         let title_cell = result_row.select(&title_cell_selector).next()?;
 
         let search_result_title = title_cell.text().nth(0)?.trim();
 
         // If the search result title doesnt contain/match the title parameter return none. We know it isn't the correct book
-        // if !search_result_title
-        //     .to_ascii_lowercase()
-        //     .contains(&title.to_ascii_lowercase())
-        // {
-        //     return None;
-        // }
-
+        // If two books end up with the same title, whichever is processed first is returned
+        // TODO: add advanced search
         let search_result_title_trimmed = search_result_title.trim();
         let title_trimmed = title.trim();
         if !search_result_title_trimmed
@@ -83,11 +78,12 @@ impl Processor {
             .inner_html();
 
         let direct_link =
-            build_direct_download_url(book_id, href_book_link, &title.to_string(), file_type).ok();
+            build_direct_download_url(libgen_id, href_book_link, &title.to_string(), file_type)
+                .ok();
 
         Some(LibgenBook {
             title: search_result_title.to_owned(),
-            libgen_id: book_id,
+            libgen_id,
             publisher,
             authors,
             direct_link,
