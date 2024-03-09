@@ -5,6 +5,8 @@ use std::{
     net::TcpStream,
 };
 
+use urlencoding::encode;
+
 #[derive(Debug, PartialEq)]
 #[doc = r" The data collected from a search result."]
 pub struct LibgenBook {
@@ -17,13 +19,58 @@ pub struct LibgenBook {
     /// The publisher of the book (some books have multiple which is not supported)
     pub publisher: String,
     /// The direct download link for the book
-    pub direct_link: Option<String>,
+    pub libgen_md5: String,
+    /// File type
+    pub file_type: String,
 }
 
 impl LibgenBook {
+    /// Calculates the group id for a book based on its id.
+    ///
+    /// Libgen (Library Genesis) sorts books by the thousandth of their ids. This function
+    /// takes a book's id as input and returns the corresponding group id, which represents
+    /// the group of books that share the same thousandth in their ids.
+    ///
+    /// # Arguments
+    ///
+    /// * `id` - The id of the book for which the group id needs to be calculated.
+    ///
+    /// # Returns
+    ///
+    /// The group id for the given book id.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    ///
+    /// use libgen_scraper::util::calculate_group_id;
+    /// let book_id = 123456;
+    /// let group_id = calculate_group_id(book_id);
+    /// assert_eq!(group_id, 123000);
+    /// ```
+    ///
+    /// # Notes
+    ///
+    /// - The group id is calculated by dividing the book's id by 1000 and then multiplying
+    ///   the result by 1000, effectively rounding down the id to the nearest thousandth.
+    ///
+    fn calculate_group_id(&self, id: u64) -> u64 {
+        (id / 1000) * 1000
+    }
+    #[doc = r"Build the books download link."]
+    pub fn build_direct_download_url(&self) -> Result<String, String> {
+        Ok(format!(
+            "https://download.library.lol/main/{}/{}/{}.{}",
+            self.calculate_group_id(self.libgen_id),
+            self.libgen_md5,
+            encode(&self.title),
+            self.file_type
+        ))
+    }
     #[doc = r"Downloads the book based on its direct link."]
     pub fn download(&self) -> Result<(), Box<dyn Error>> {
-        let mut download_path = self.direct_link.as_ref().unwrap().as_str();
+        let binding = self.build_direct_download_url();
+        let mut download_path = binding.as_ref().unwrap().as_str();
         if let Some(index) = download_path.find("/main/") {
             download_path = &download_path[index..];
         }

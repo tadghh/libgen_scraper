@@ -138,10 +138,11 @@ mod tests {
 
         let valid_result = LibgenBook {
             libgen_id: 3759134,
+            libgen_md5: "pdf".to_owned(),
+            file_type: "pdf".to_owned(),
             title: "Python for Security and Networking: Leverage Python modules and tools in securing your network and applications".to_owned(),
             authors: vec!["José Manuel Ortega".to_string()],
             publisher: "Packt Publishing".to_owned(),
-            direct_link: Some("https://download.library.lol/main/3759000/6bed397b612b9e3994a7dc2d6b5440ba/Python%20for%20Security%20and%20Networking.epub".to_owned())
         };
         let result = test_client.search_book_by_title(&generic_book);
 
@@ -168,12 +169,17 @@ mod tests {
 
         let coauthored_book = "Abstract and concrete categories: the joy of cats".to_string();
 
-        let valid_cat_result = LibgenBook{
+        let valid_cat_result = LibgenBook {
             libgen_id: 3750,
+            libgen_md5: "pdf".to_owned(),
+            file_type: "pdf".to_owned(),
             title: "Abstract and concrete categories: the joy of cats".to_owned(),
-            authors: vec!["Jiri Adamek".to_string(), " Horst Herrlich".to_string(), " George E. Strecker".to_string()],
+            authors: vec![
+                "Jiri Adamek".to_string(),
+                " Horst Herrlich".to_string(),
+                " George E. Strecker".to_string(),
+            ],
             publisher: "Wiley-Interscience".to_owned(),
-            direct_link: Some("https://download.library.lol/main/3000/5fa82be26689a4e6f4415ea068d35a9d/Abstract%20and%20concrete%20categories%3A%20the%20joy%20of%20cats.pdf".to_owned())
         };
 
         let result = test_client.search_book_by_title(&coauthored_book);

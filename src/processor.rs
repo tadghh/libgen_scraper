@@ -1,8 +1,4 @@
-use crate::{
-    book::LibgenBook,
-    scraper::LibgenError,
-    util::{build_direct_download_url, calculate_group_id},
-};
+use crate::{book::LibgenBook, scraper::LibgenError, util::parse_md5_from_url};
 use scraper::{ElementRef, Html, Selector};
 
 /// A html processor to grab needed elements
@@ -77,16 +73,13 @@ impl Processor {
             .unwrap()
             .inner_html();
 
-        let direct_link =
-            build_direct_download_url(libgen_id, href_book_link, &title.to_string(), file_type)
-                .ok();
-
         Some(LibgenBook {
             title: search_result_title.to_owned(),
             libgen_id,
+            libgen_md5: parse_md5_from_url(href_book_link)?,
             publisher,
             authors,
-            direct_link,
+            file_type,
         })
     }
 
