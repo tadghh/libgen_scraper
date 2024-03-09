@@ -61,8 +61,8 @@ impl LibgenClient {
             .send()
             .await
     }
-
-    async fn search_book_by_title_internal(
+    /// Search for a book based on its title
+    pub async fn search_book_by_title(
         &self,
         title: &str,
     ) -> Result<Option<LibgenBook>, LibgenError> {
@@ -111,27 +111,19 @@ impl LibgenClient {
         Err(LibgenError::TimeoutError)
     }
 
-    /// Search for a single title
-    pub async fn search_book_by_title(
-        &self,
-        title: &str,
-    ) -> Result<Option<LibgenBook>, LibgenError> {
-        self.search_book_by_title_internal(title).await
-    }
-    /// Search for a group of titles
-    pub async fn search_books_by_titles(
-        &self,
-        titles: Vec<&str>,
-    ) -> Vec<Result<Option<LibgenBook>, LibgenError>> {
-        let mut results = Vec::new();
+    // Search for a group of titles
+    // pub async fn search_books_by_titles(
+    //     &self,
+    //     titles: Vec<&str>,
+    // ) -> Vec<Result<Option<LibgenBook>, LibgenError>> {
+    //     let mut results = Vec::new();
 
-        for title in titles {
-            let result = self.search_book_by_title_internal(title).await;
-            results.push(result);
-        }
+    //     for title in titles {
+    //         results.push(self.search_book_by_title(title).await);
+    //     }
 
-        results
-    }
+    //     results
+    // }
 }
 
 #[cfg(test)]
