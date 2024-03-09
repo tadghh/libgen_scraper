@@ -7,6 +7,8 @@ use std::{
 
 use urlencoding::encode;
 
+use crate::util::calculate_group_id;
+
 #[derive(Debug, PartialEq)]
 #[doc = r" The data collected from a search result."]
 pub struct LibgenBook {
@@ -25,43 +27,11 @@ pub struct LibgenBook {
 }
 
 impl LibgenBook {
-    /// Calculates the group id for a book based on its id.
-    ///
-    /// Libgen (Library Genesis) sorts books by the thousandth of their ids. This function
-    /// takes a book's id as input and returns the corresponding group id, which represents
-    /// the group of books that share the same thousandth in their ids.
-    ///
-    /// # Arguments
-    ///
-    /// * `id` - The id of the book for which the group id needs to be calculated.
-    ///
-    /// # Returns
-    ///
-    /// The group id for the given book id.
-    ///
-    /// # Examples
-    ///
-    /// ```
-    ///
-    /// use libgen_scraper::util::calculate_group_id;
-    /// let book_id = 123456;
-    /// let group_id = calculate_group_id(book_id);
-    /// assert_eq!(group_id, 123000);
-    /// ```
-    ///
-    /// # Notes
-    ///
-    /// - The group id is calculated by dividing the book's id by 1000 and then multiplying
-    ///   the result by 1000, effectively rounding down the id to the nearest thousandth.
-    ///
-    fn calculate_group_id(&self, id: u64) -> u64 {
-        (id / 1000) * 1000
-    }
     #[doc = r"Build the books download link."]
     pub fn build_direct_download_url(&self) -> Result<String, String> {
         Ok(format!(
             "https://download.library.lol/main/{}/{}/{}.{}",
-            self.calculate_group_id(self.libgen_id),
+            calculate_group_id(self.libgen_id),
             self.libgen_md5,
             encode(&self.title),
             self.file_type
@@ -117,4 +87,8 @@ impl LibgenBook {
 
         Ok(())
     }
+}
+#[cfg(test)]
+mod tests {
+    // TODO: Test to make build_direct_download_url
 }

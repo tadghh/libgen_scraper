@@ -138,8 +138,8 @@ mod tests {
 
         let valid_result = LibgenBook {
             libgen_id: 3759134,
-            libgen_md5: "pdf".to_owned(),
-            file_type: "pdf".to_owned(),
+            libgen_md5: "6bed397b612b9e3994a7dc2d6b5440ba".to_owned(),
+            file_type: "epub".to_owned(),
             title: "Python for Security and Networking: Leverage Python modules and tools in securing your network and applications".to_owned(),
             authors: vec!["José Manuel Ortega".to_string()],
             publisher: "Packt Publishing".to_owned(),
@@ -171,7 +171,7 @@ mod tests {
 
         let valid_cat_result = LibgenBook {
             libgen_id: 3750,
-            libgen_md5: "pdf".to_owned(),
+            libgen_md5: "5fa82be26689a4e6f4415ea068d35a9d".to_owned(),
             file_type: "pdf".to_owned(),
             title: "Abstract and concrete categories: the joy of cats".to_owned(),
             authors: vec![
