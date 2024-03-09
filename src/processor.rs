@@ -54,15 +54,15 @@ impl Processor {
         }
 
         // TODO: Alternate path, going to the book download page on libgen and grabbin the url there instead of skipping it (since we are creating the direct link from the info on the search page).
-        let file_type = result_row
+        let file_type: String = result_row
             .select(&self.book_file_type_selector)
             .next()
             .unwrap()
-            .inner_html()
-            .to_owned();
+            .inner_html();
 
-        let href_book_link = title_cell.value().attr("href")?.to_owned();
+        let href_book_link: String = title_cell.value().attr("href")?.to_string();
 
+        // TODO: Add as impl
         let book_group_id = calculate_group_id(book_id);
 
         let authors: Vec<_> = result_row
@@ -90,17 +90,16 @@ impl Processor {
         })
     }
 
-    // TODO: Benchmark this
     /// Looks for a books title in the html reponse
     pub fn search_title_in_document(
         &self,
-        html_document: Html,
+        html_document: &Html,
         title: &str,
     ) -> Result<Option<LibgenBook>, LibgenError> {
         let book_data = html_document
             .select(&self.book_search_result_selector)
             .find_map(|srch_result| self.parse_search_result(title, srch_result));
 
-        return Ok(book_data);
+        Ok(book_data)
     }
 }

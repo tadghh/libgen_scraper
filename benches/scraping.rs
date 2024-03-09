@@ -12,6 +12,8 @@ pub fn processor_benchmark(c: &mut Criterion) {
 
     let libgen_client = Processor::new();
     let search_string = "benchmark".to_string();
+    let search_string_worst = "Benchmarking Security and Trust in Europe and the Us".to_string();
+    let search_string_none = "Elephant".to_string();
 
     let html_content = fs::read_to_string("benches/benchmark_page.htm").unwrap();
 
@@ -20,8 +22,36 @@ pub fn processor_benchmark(c: &mut Criterion) {
     group.bench_with_input(
         BenchmarkId::new("search_title_in_document", "benchmark_page"),
         &document,
-        |b, i| b.iter(|| libgen_client.search_title_in_document(i.clone(), &search_string)),
+        |b, i| {
+            b.iter(|| {
+                let result = libgen_client.search_title_in_document(i, &search_string);
+            })
+        },
     );
+    group.bench_with_input(
+        BenchmarkId::new("search_title_in_document_end", "benchmark_page"),
+        &document,
+        |b, i| {
+            b.iter(|| {
+                let result = libgen_client.search_title_in_document(i, &search_string_worst);
+            })
+        },
+    );
+
+    // TODO: Makes tests
+    // group.bench_with_input(
+    //     BenchmarkId::new("search_title_not_in_document", "benchmark_page"),
+    //     &document,
+    //     |b, i| {
+    //         b.iter(|| {
+    //             let result = libgen_client
+    //                 .search_title_in_document(i, &search_string_none)
+    //                 .unwrap();
+
+    //             assert!(result.is_some(), "Response is not none");
+    //         })
+    //     },
+    // );
     group.finish();
 }
 
