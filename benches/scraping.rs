@@ -12,47 +12,57 @@ pub fn processor_benchmark(c: &mut Criterion) {
 
     // TODO: Rename
     let libgen_client = Processor::new();
-    let search_string = "benchmark".to_string();
-    let search_string_worst = "Benchmarking Security and Trust in Europe and the Us".to_string();
-    let search_string_none = "Elephant".to_string();
 
     let html_content = fs::read_to_string("benches/benchmark_page.htm").unwrap();
 
     let document = Html::parse_document(&html_content);
 
+    let search_string = "benchmark".to_string();
+    // Happy path where element is at the start of the search results
     group.bench_with_input(
         BenchmarkId::new("search_title_in_document", "benchmark_page"),
         &document,
         |b, i| {
             b.iter(|| {
-                let result = libgen_client.search_title_in_document(i, &search_string);
+                let result = libgen_client
+                    .search_title_in_document(i, &search_string)
+                    .unwrap();
+                assert!(result.is_some(), "Response is not none");
             })
         },
     );
+
+    let search_string_worst = "Benchmarking Security and Trust in Europe and the Us".to_string();
+    // Search for an element at the bottom of the benchmark page
     group.bench_with_input(
         BenchmarkId::new("search_title_in_document_end", "benchmark_page"),
         &document,
         |b, i| {
             b.iter(|| {
-                let result = libgen_client.search_title_in_document(i, &search_string_worst);
+                let result = libgen_client
+                    .search_title_in_document(i, &search_string_worst)
+                    .unwrap();
+                assert!(result.is_some(), "Response is not none");
             })
         },
     );
 
-    // TODO: Makes tests
-    // group.bench_with_input(
-    //     BenchmarkId::new("search_title_not_in_document", "benchmark_page"),
-    //     &document,
-    //     |b, i| {
-    //         b.iter(|| {
-    //             let result = libgen_client
-    //                 .search_title_in_document(i, &search_string_none)
-    //                 .unwrap();
+    let search_string_none = "Elephant".to_string();
+    // Make sure it is none
+    group.bench_with_input(
+        BenchmarkId::new("search_title_not_in_document", "benchmark_page"),
+        &document,
+        |b, i| {
+            b.iter(|| {
+                let result = libgen_client
+                    .search_title_in_document(i, &search_string_none)
+                    .unwrap();
 
-    //             assert!(result.is_some(), "Response is not none");
-    //         })
-    //     },
-    // );
+                assert!(result.is_none(), "Response is not none");
+            })
+        },
+    );
+
     group.finish();
 }
 
