@@ -3,7 +3,7 @@ use scraper::Html;
 use std::{fmt, thread, time::Duration};
 use urlencoding::encode;
 
-use crate::{book::LibgenBook, processor::Processor};
+use crate::{book::LibgenBook, downloader::Downloader, processor::Processor};
 
 const MAX_RETRIES: usize = 3;
 const TIMEOUT_DURATION: u64 = 15;
@@ -42,6 +42,7 @@ pub struct LibgenClient {
     // The request client
     client: Client,
     processor: Processor,
+    downloader: Downloader,
 }
 
 impl LibgenClient {
@@ -50,6 +51,7 @@ impl LibgenClient {
         LibgenClient {
             client: Client::new(),
             processor: Processor::new(),
+            downloader: Downloader::new(),
         }
     }
 

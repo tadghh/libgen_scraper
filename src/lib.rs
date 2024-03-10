@@ -23,3 +23,6 @@ pub mod processor;
 pub mod scraper;
 /// One off methods
 pub mod util;
+
+/// Downloader!!
+pub mod downloader;
