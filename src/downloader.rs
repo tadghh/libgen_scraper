@@ -1,4 +1,7 @@
+use crate::book::LibgenBook;
 use core::fmt;
+use lazy_static::lazy_static;
+use regex::Regex;
 use std::{
     error::Error,
     f64::consts::E,
@@ -6,9 +9,6 @@ use std::{
     io::{self, Read, Write},
     net::TcpStream,
 };
-
-use crate::book::LibgenBook;
-
 // Define your custom error enum
 #[derive(Debug)]
 pub enum DownloadError {
@@ -34,7 +34,9 @@ impl fmt::Display for DownloadError {
         write!(f, "{}", error_str)
     }
 }
-
+lazy_static! {
+    static ref RE: Regex = Regex::new(r#"[\/:*?"<>|]"#).unwrap();
+}
 
 #[derive(Debug, PartialEq)]
 #[doc = r" The data collected from a search result."]
@@ -95,7 +97,7 @@ impl Downloader {
 
     fn create_book_download_name(book: &LibgenBook) -> String {
         let temp = [book.title.clone(), book.file_type.clone()].join(".");
-        temp
+        RE.replace_all(&temp, "_").to_string()
     }
 
     #[doc = r"Downloads the book based on its direct link."]

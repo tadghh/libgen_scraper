@@ -940,6 +940,7 @@ dependencies = [
  "criterion",
  "lazy_static",
  "plotters",
+ "regex",
  "reqwest",
  "scraper",
  "tokio",
