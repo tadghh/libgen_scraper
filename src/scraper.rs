@@ -3,14 +3,17 @@ use scraper::Html;
 use std::{fmt, thread, time::Duration};
 use urlencoding::encode;
 
-use crate::{book::LibgenBook, downloader::Downloader, processor::Processor};
+use crate::{
+    book::LibgenBook,
+    downloader::{DownloadError, Downloader},
+    processor::Processor,
+};
 
 const MAX_RETRIES: usize = 3;
 const TIMEOUT_DURATION: u64 = 15;
 const LIBGEN_MIRRORS: [&str; 3] = ["is", "rs", "st"];
 
 #[derive(Debug, PartialEq)]
-#[doc = r" The data collected from a search result."]
 pub enum LibgenError {
     /// Connection error while collecting data.
     ConnectionError,
@@ -51,10 +54,15 @@ impl LibgenClient {
         LibgenClient {
             client: Client::new(),
             processor: Processor::new(),
-            downloader: Downloader::new(),
+            downloader: Downloader::new(None),
         }
     }
-
+    pub fn set_download_path(&mut self, new_path: String) {
+        self.downloader.change_download_path(new_path);
+    }
+    pub fn download_book(self, book: &LibgenBook) -> Result<(), DownloadError> {
+        self.downloader.download(book)
+    }
     /// Request logic
     async fn send_request(&self, url: &str) -> Result<Response, Error> {
         self.client

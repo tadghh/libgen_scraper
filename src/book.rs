@@ -1,10 +1,3 @@
-use std::{
-    error::Error,
-    fs::File,
-    io::{Read, Write},
-    net::TcpStream,
-};
-
 use urlencoding::encode;
 
 use crate::util::calculate_group_id;
@@ -29,6 +22,7 @@ pub struct LibgenBook {
 impl LibgenBook {
     #[doc = r"Build the books download link."]
     pub fn build_direct_download_url(&self) -> Result<String, String> {
+        // TODO: URL hardcoding?
         Ok(format!(
             "https://download.library.lol/main/{}/{}/{}.{}",
             calculate_group_id(self.libgen_id),
@@ -43,7 +37,6 @@ impl LibgenBook {
 mod tests {
     use super::LibgenBook;
 
-    // TODO: Test to make build_direct_download_url
     #[test]
     fn build_direct_download_url() {
         let valid_cat_result = LibgenBook {
